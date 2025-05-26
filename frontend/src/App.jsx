@@ -1,16 +1,21 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
-import ChessBoard from './ChessBoard'
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import ChessboardComponent from './pages/ChessBoard';
+import HomePage from './pages/HomePage/HomePage';
+import Login from "./pages/Login.jsx";
+
 
 function App() {
   const [count, setCount] = useState(0)
 
   return (
-    <>
-      <ChessBoard/>
-    </>
+    <Router>
+      <Routes>
+        <Route path="/chess" element={<ChessboardComponent />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/" element={<HomePage />} />
+      </Routes>
+    </Router>
   )
 }
 
