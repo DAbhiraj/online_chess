@@ -3,12 +3,14 @@ package com.game.chess.security;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
+import java.util.Base64;
 import java.util.Date;
 
 @Component
@@ -23,7 +25,7 @@ public class JwtTokenProvider {
     private int jwtRefreshExpirationMs;
 
     private Key getSigningKey() {
-        return Keys.hmacShaKeyFor(jwtSecret.getBytes());
+        return Keys.hmacShaKeyFor(Base64.getDecoder().decode(jwtSecret));
     }
 
     public String generateAccessToken(Authentication authentication) {

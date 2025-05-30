@@ -1,25 +1,114 @@
 package com.game.chess.config;
 
+import io.jsonwebtoken.*;
+import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.server.ServerHttpRequest;
+import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
+import org.springframework.stereotype.Component;
+import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
+import org.springframework.web.socket.server.HandshakeInterceptor;
+import org.springframework.web.socket.server.support.DefaultHandshakeHandler;
+import org.springframework.web.util.UriComponentsBuilder;
+import javax.crypto.SecretKey;
+import java.security.Principal;
+import java.util.Base64;
+import java.util.Map;
 
 @Configuration
-@EnableWebSocketMessageBroker // Enables WebSocket message handling, backed by a message broker
+@EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
-    @Override
-    public void configureMessageBroker(MessageBrokerRegistry config){
-        config.enableSimpleBroker("/topic");
-        config.setApplicationDestinationPrefixes("/app");
+    @Value("${security.jwt.secret-key}")
+    private String jwtSecretBase64;
+
+    private SecretKey secretKey;
+
+    @PostConstruct
+    public void init() {
+        byte[] decodedKey = Base64.getDecoder().decode(jwtSecretBase64);
+        this.secretKey = Keys.hmacShaKeyFor(decodedKey);
     }
 
     @Override
-    public void registerStompEndpoints(StompEndpointRegistry registry){
-        // Registers a STOMP endpoint at /ws.
-        // It enables SockJS fallback options, which allows alternative transports.
-        registry.addEndpoint("/ws").setAllowedOriginPatterns("http://localhost:5173").withSockJS(); // Use .setAllowedOriginPatterns for CORS
+    public void configureMessageBroker(MessageBrokerRegistry config) {
+        config.enableSimpleBroker("/topic", "/queue");
+        config.setApplicationDestinationPrefixes("/app");
+        config.setUserDestinationPrefix("/user");
     }
+
+    @Override
+    public void registerStompEndpoints(StompEndpointRegistry registry) {
+      registry.addEndpoint("/ws")
+            .setHandshakeHandler(new DefaultHandshakeHandler() {
+                @Override
+                protected Principal determineUser(ServerHttpRequest request, 
+                    WebSocketHandler wsHandler, Map<String, Object> attributes) {
+                    return (Principal) attributes.get("user");
+                }
+            })
+            .addInterceptors(new JwtHandshakeInterceptor())
+            .setAllowedOriginPatterns("*") // Adjust for production
+            .withSockJS();
+    }
+
+    
+    private class JwtHandshakeInterceptor implements HandshakeInterceptor {
+
+    @Override
+    public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response,
+                                 WebSocketHandler wsHandler, Map<String, Object> attributes) {
+        
+        // Extract token from query parameters only
+        String token = UriComponentsBuilder.fromUri(request.getURI())
+            .build()
+            .getQueryParams()
+            .getFirst("token");
+
+        if (token == null || token.isBlank()) {
+            response.setStatusCode(HttpStatus.UNAUTHORIZED);
+            return false;
+        }
+
+        try {
+            Claims claims = Jwts.parserBuilder()
+                .setSigningKey(secretKey)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+            String username = claims.getSubject();
+            System.out.println("Authenticating WebSocket connection for user: " + username);
+            
+            // Create Principal and store in attributes
+            Principal principal = () -> username;
+            attributes.put("user", principal);
+            
+            return true;
+
+        } catch (ExpiredJwtException e) {
+            System.err.println("JWT expired: " + e.getMessage());
+            response.setStatusCode(HttpStatus.UNAUTHORIZED);
+        } catch (JwtException e) {
+            System.err.println("Invalid JWT: " + e.getMessage());
+            response.setStatusCode(HttpStatus.UNAUTHORIZED);
+        }
+
+        return false;
+    }
+
+    @Override
+    public void afterHandshake(ServerHttpRequest request, ServerHttpResponse response,
+                             WebSocketHandler wsHandler, Exception exception) {
+        // No cleanup needed
+    }
+}
 }

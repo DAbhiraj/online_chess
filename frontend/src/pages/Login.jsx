@@ -8,7 +8,7 @@ const Login = () => {
   const [pwd, setPwd] = useState(true);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
-  const parallaxRef = useRef(null);
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -22,11 +22,13 @@ const Login = () => {
       const name = response.data.name;
       const club = response.data.club;
       const userId = response.data.id;
-
+      const email = response.data.email;
+      console.log("access token is "+token)
       if (token && roles) {
         localStorage.setItem("roles", JSON.stringify(roles));
         localStorage.setItem("authToken", token);
         localStorage.setItem("name", name);
+        localStorage.setItem("email",email);
         localStorage.setItem("club", club);
         localStorage.setItem("userId", userId);
 

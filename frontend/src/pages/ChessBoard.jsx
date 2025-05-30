@@ -1,158 +1,247 @@
 import "./init.jsx";
-import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Chessboard } from 'react-chessboard';
-import { Chess } from 'chess.js'; // Import the chess.js logic library
+import React, { useState, useCallback, useEffect, useRef } from "react";
+import { Chessboard } from "react-chessboard";
+import { Chess } from "chess.js";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Client } from "@stomp/stompjs";
+import SockJS from "sockjs-client";
+import axios from "axios";
+import moveSoundFile from '/chess_move.wav';
 
-// Import STOMP and SockJS
-import { Client } from '@stomp/stompjs';
-import SockJS from 'sockjs-client';
 
-// IMPORTANT: Define your WebSocket endpoint URL.
-// This should match your Spring Boot WebSocket configuration.
-// Typically, Spring Boot SockJS endpoints are prefixed with /ws
 const WEBSOCKET_URL = "http://localhost:8080/ws";
-
+const API_BASE_URL = "http://localhost:8080/"; // adjust to your backend base URL
+const moveSound = new Audio(moveSoundFile)
 function ChessboardComponent() {
-  const [game, setGame] = useState(new Chess());
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const { gameId: initialGameId, initialFen } = location.state || {};
+
+  const [game, setGame] = useState(
+    new Chess(initialFen || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+  );
   const [stompClient, setStompClient] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
-  const gameRef = useRef(game); // Use a ref to access the latest game state in callbacks
+  const [gameId, setGameId] = useState(initialGameId);
+  const [matchmakingStatus, setMatchmakingStatus] = useState(
+    initialGameId ? "in_game" : "idle"
+  );
+  const [loadingGameState, setLoadingGameState] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Use a ref for a pseudo-gameId or actual gameId if you have it
-  // In a real app, this would come from the lobby/matchmaking logic
-  const gameIdRef = useRef('G123'); // IMPORTANT: Replace with actual game ID logic
+  const gameRef = useRef(game);
+  const gameIdRef = useRef(gameId);
+  const stompClientRef = useRef(stompClient);
+  const isConnectedRef = useRef(isConnected);
+
+  const playMoveSound = () => {
+  moveSound.currentTime = 0;
+  moveSound.play();
+};
+
+  useEffect(() => { gameRef.current = game; }, [game]);
+  useEffect(() => { gameIdRef.current = gameId; }, [gameId]);
+  useEffect(() => { stompClientRef.current = stompClient; }, [stompClient]);
+  useEffect(() => { isConnectedRef.current = isConnected; }, [isConnected]);
 
   useEffect(() => {
-    gameRef.current = game; // Keep the ref updated with the latest game state
-  }, [game]);
+    if (!initialGameId) {
+      console.warn("No gameId passed, redirecting to home...");
+      navigate("/");
+    }
+  }, [initialGameId, navigate]);
 
-  // --- WebSocket Connection Management ---
+  // Fetch game state once from REST endpoint after WebSocket connection established
+  const fetchGameState = useCallback(async () => {
+    if (!gameIdRef.current) return;
+
+    setLoadingGameState(true);
+    setError(null);
+
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await axios.get(`${API_BASE_URL}game/${gameIdRef.current}`);
+
+      const gameState = response.data;
+      console.log("Fetched game state from REST API:", gameState);
+
+      if (gameState.fen) {
+        const updatedGame = new Chess(gameState.fen);
+        setGame(updatedGame);
+      } else {
+        console.warn("REST API did not return FEN in game state");
+      }
+    } catch (err) {
+      console.error("Error fetching game state:", err);
+      setError("Failed to load game state.");
+    } finally {
+      setLoadingGameState(false);
+    }
+  }, []);
+
   useEffect(() => {
+    if (!gameId) return;
+
+    const token = localStorage.getItem("authToken");
+    const websocketUrlWithToken = `${WEBSOCKET_URL}?token=${token}`;
+
     const client = new Client({
-      webSocketFactory: () => new SockJS(WEBSOCKET_URL),
-      debug: (str) => {
-        console.log('STOMP Debug:', str);
-      },
-      reconnectDelay: 5000, // Try to reconnect every 5 seconds
+      webSocketFactory: () => new SockJS(websocketUrlWithToken),
+      debug: (str) => console.log("STOMP Debug (ChessboardComponent):", str),
+      reconnectDelay: 5000,
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
     });
 
     client.onConnect = (frame) => {
-      console.log('Connected to WebSocket:', frame);
+      console.log("Connected to WebSocket:", frame);
       setIsConnected(true);
       setStompClient(client);
 
-      // --- SUBSCRIBE TO GAME UPDATES ---
-      // This is crucial: Subscribe to a topic where the backend will send game state updates.
-      // The topic usually includes a game ID.
-      // Example: /topic/game/{gameId}
-      client.subscribe(`/topic/game/${gameIdRef.current}`, (message) => {
-        const newGameState = JSON.parse(message.body);
-        console.log('Received game state update:', newGameState);
-        // Assuming the backend sends the full FEN string
-        const updatedGame = new Chess(newGameState.fen);
-        setGame(updatedGame); // Update React state with the new FEN from the server
-      });
+      // Subscribe to game updates
+      client.gameSubscription = client.subscribe(
+        `/topic/game/${gameId}`,
+        (message) => {
+          const newGameState = JSON.parse(message.body);
+          console.log("Received game update:", newGameState);
 
-      // You might also subscribe to personal queues for specific notifications:
-      // client.subscribe(`/user/queue/private-messages`, (message) => { ... });
+          if (newGameState.fen) {
+            const updatedGame = new Chess(newGameState.fen);
+            setGame(updatedGame);
+          }
+        },
+        { id: "gameSub" }
+      );
+
+      // After WS connection, fetch current game state from REST
+      fetchGameState();
     };
 
     client.onStompError = (frame) => {
-      console.error('Broker reported error:', frame.headers['message']);
-      console.error('Additional details:', frame.body);
+      console.error("STOMP Error:", frame.headers["message"], frame.body);
       setIsConnected(false);
+      setGameId(null);
+      setMatchmakingStatus("idle");
+      navigate("/");
     };
 
     client.onWebSocketClose = () => {
-        console.log('WebSocket connection closed.');
-        setIsConnected(false);
+      console.log("WebSocket closed.");
+      setIsConnected(false);
+      setGameId(null);
+      setMatchmakingStatus("idle");
+      navigate("/");
     };
 
-    client.activate(); // Connect
+    client.activate();
 
-    // Cleanup function: Disconnect when component unmounts
     return () => {
-      if (client.connected) {
+      if (client) {
+        if (client.gameSubscription) {
+          client.gameSubscription.unsubscribe();
+        }
         client.deactivate();
-        console.log('Disconnected from WebSocket.');
+        console.log("WebSocket client disconnected (cleanup).");
       }
     };
-  }, []); // Empty dependency array means this runs once on mount and clean up on unmount
+  }, [gameId, navigate, fetchGameState]);
 
-  // --- Sending Moves to Backend ---
-  const sendMoveToBackend = useCallback((moveDetails) => {
-    
-    if (stompClient && isConnected) {
-      // The topic where the backend expects to receive moves
-      // This usually maps to a @MessageMapping endpoint in Spring Boot
-      const destination = `/app/game.move/${gameIdRef.current}`; // Example: /app/game.move/{gameId}
-      
-      stompClient.publish({
-        destination: destination,
-        body: JSON.stringify(moveDetails),
-      });
-      console.log('Move sent to backend:', moveDetails);
-    } else {
-      console.warn('Not connected to WebSocket to send move.');
-    }
-  }, [stompClient, isConnected]); // Depend on stompClient and isConnected
+  const sendMoveToBackend = useCallback(
+    (moveDetails) => {
+      if (
+        stompClientRef.current &&
+        isConnectedRef.current &&
+        gameIdRef.current
+      ) {
+        stompClientRef.current.publish({
+          destination: `/app/game.move/${gameIdRef.current}`,
+          body: JSON.stringify(moveDetails),
+        });
+        console.log("Sent move to backend:", moveDetails);
+      } else {
+        console.warn("Cannot send move: Not connected or missing gameId");
+      }
+    },
+    []
+  );
 
-  // --- onDrop handler (remains largely the same, but now calls sendMoveToBackend) ---
-  const onDrop = useCallback((sourceSquare, targetSquare) => {
-    // Perform client-side validation for immediate UX feedback
-    const gameCopy = new Chess(gameRef.current.fen()); 
-    
-    try {
+  const onDrop = useCallback(
+    (sourceSquare, targetSquare) => {
+      if (!gameIdRef.current || matchmakingStatus !== "in_game") {
+        console.log("Move rejected: Not in active game.");
+        return false;
+      }
+
+      const gameCopy = new Chess(gameRef.current.fen());
+
       const move = gameCopy.move({
         from: sourceSquare,
         to: targetSquare,
-        promotion: 'q',
+        promotion: "q",
       });
 
       if (move) {
-        // Optimistic update: Update client-side game state immediately
-        // This makes the UI feel very responsive.
-        setGame(gameCopy); 
-
-        console.log("Client-side legal move made:", move);
-
-        // --- Send move to backend for server-side validation and broadcast ---
+        setGame(gameCopy);
+        console.log("Legal move:", move);
+        playMoveSound()
         sendMoveToBackend({
-          gameId: gameIdRef.current, // Pass the game ID
           from: sourceSquare,
           to: targetSquare,
-          promotion: 'q', // Keep promotion for backend
-          fen: gameCopy.fen() // Optionally send current FEN for server to verify
+          promotion: "q",
+          fenAfterMove: gameCopy.fen(),
         });
 
-        // You might want to remove the game over/check checks here
-        // or just keep them for logging as the server will be authoritative
         if (gameCopy.isGameOver()) {
-            if (gameCopy.isCheckmate()) { console.log("Client-side: Checkmate!"); }
-            else if (gameCopy.isStalemate()) { console.log("Client-side: Stalemate!"); }
-            else if (gameCopy.isDraw()) { console.log("Client-side: Draw!"); }
+          console.log("Game Over!");
         } else if (gameCopy.isCheck()) {
-            console.log("Client-side: Check!");
+          console.log("Check!");
         }
 
-        return true; // Indicate that the move was legal and the piece should be updated on the board
+        return true;
       }
-    } catch (e) {
-      console.error("Client-side illegal move:", e);
-    }
-    return false; // Indicate that the move was illegal, and the piece should snap back
-  }, [sendMoveToBackend]); // Depend on sendMoveToBackend callback
 
+      console.warn("Illegal move attempted");
+      return false;
+    },
+    [sendMoveToBackend, matchmakingStatus]
+  );
 
   return (
-    <div>
-      <h2>Your Chess Game {isConnected ? '(Connected)' : '(Disconnected)'}</h2>
-      <p>Game ID: {gameIdRef.current} (Replace with actual ID logic)</p>
-      <Chessboard position={game.fen()} onPieceDrop={onDrop} />
-      <p>Current Turn: {game.turn() === 'w' ? 'White' : 'Black'}</p>
-      <p>FEN: {game.fen()}</p>
+    <div className="chess-board-component">
+      <h2>Your Chess Game</h2>
+      <p>Game ID: {gameId || "N/A"}</p>
+
+      {!isConnected && (
+        <p className="status-message">
+          {gameId
+            ? "Connecting to game server..."
+            : "No game ID received. Redirecting..."}
+        </p>
+      )}
+
+      {loadingGameState && <p>Loading game state...</p>}
+      {error && <p className="error-message">{error}</p>}
+
+      {matchmakingStatus === "in_game" && gameId && isConnected && !loadingGameState ? (
+        <>
+          <p className="warning-message">
+            WARNING: Backend only relays FEN. Moves are optimistically applied
+            client-side. No server-side validation.
+          </p>
+          <Chessboard
+            position={game.fen()}
+            onPieceDrop={onDrop}
+            boardWidth={500}
+          />
+          <p>Current Turn: {game.turn() === "w" ? "White" : "Black"}</p>
+          <p className="fen-display">FEN: {game.fen()}</p>
+        </>
+      ) : (
+        !loadingGameState && <p className="status-message">
+          Waiting for game to load or connection to establish...
+        </p>
+      )}
     </div>
   );
 }
