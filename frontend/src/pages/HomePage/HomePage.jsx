@@ -33,35 +33,6 @@ function HomePage() {
       webSocketFactory: () =>
         new SockJS(websocketUrlWithToken),
         reconnectDelay: 5000,
-        onConnect: (frame) => {
-        console.log("Connected");
-
-        // Subscribe to user-specific queue
-        console.log("going to subscribe /queue/matchmaking");
-        client.subscribe("/user/queue/matchmaking", (message) => {
-          const response = JSON.parse(message.body);
-          console.log("Matchmaking response:", response);
-
-          if (response.status === "found") {
-            navigate("/chess", {
-              state: {
-                gameId: response.gameId,
-                initialFen: response.fen,
-                opponent: response.opponentUsername,
-              },
-            });
-          }
-        });
-
-        // Send find request after short delay
-        setTimeout(() => {
-          client.publish({
-            destination: "/app/game.find",
-            body: JSON.stringify({}),
-            headers: { "content-type": "application/json" },
-          });
-        }, 300);
-      },
     });
 
     client.onConnect = (frame) => {
@@ -152,8 +123,18 @@ function HomePage() {
     }
   }, [stompClient, matchmakingStatus]);
 
+  const handleLoginRedirect = () => {
+    navigate('/login');
+  }
+
+    const handleLobbyRedirect = () => {
+    navigate('/lobby');
+  }
+
   return (
     <div className="home-page-container">
+      <button onClick = {handleLoginRedirect}>login</button>
+      <button onClick = {handleLobbyRedirect}>Lobby</button>
       <h1>Welcome to Chess Online!</h1>
       <p>Your User ID: {userIdRef.current}</p>
 

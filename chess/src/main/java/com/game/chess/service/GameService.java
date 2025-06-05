@@ -1,14 +1,16 @@
 // backend/src/main/java/com/game/chess/service/GameService.java
 package com.game.chess.service;
 
-import com.game.chess.dto.GameState;
+import com.game.chess.dto.GameOverReq;
 import com.game.chess.dto.GameStateDTO;
 import com.game.chess.dto.MatchMakingResponse;
 import com.game.chess.dto.MoveRequest;
 import com.game.chess.model.Game;
 import com.game.chess.model.MoveHistory;
+import com.game.chess.model.User;
 import com.game.chess.repo.GameRepository;
 import com.game.chess.repo.MoveRepository;
+import com.game.chess.repo.UserRepository;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -18,17 +20,19 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
+import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
+
 
 @Service
 public class GameService {
     private static final String GAME_KEY_PREFIX = "game:";
     private static final long GAME_TTL_HOURS = 2;
+    private static final long MAX_RATING_DIFF = 200;
+    private static final String WAITING_GUEST_PLAYERS_KEY = "waiting_guest_players_set";
 
 
     // New constant for the Redis key storing waiting players
@@ -42,6 +46,9 @@ public class GameService {
 
     @Autowired
     private MoveRepository moveHistoryRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @Autowired
     private SimpMessageSendingOperations messagingTemplate;
@@ -124,17 +131,7 @@ public class GameService {
         System.out.println("Saving move to history (PostgreSQL): " + moveRequest.getFrom() + moveRequest.getTo() + " for game " + gameId + " move #" + moveNumber);
     }
 
-    public void endGame(String gameId, String status, String winnerId) {
-        Optional<Game> gameOpt = getGame(gameId);
-        if (gameOpt.isPresent()) {
-            Game game = gameOpt.get();
-            game.setStatus(status);
-            game.setWinnerId(winnerId);
-            redisTemplate.opsForValue().set(GAME_KEY_PREFIX + gameId, game, GAME_TTL_HOURS, TimeUnit.HOURS);
-            gameRepository.save(game);
-            System.out.println("Game " + gameId + " ended with status: " + status);
-        }
-    }
+
 
     public boolean isUserInActiveGame(String userId) {
         // Get all keys matching the game prefix
@@ -174,13 +171,6 @@ public class GameService {
         System.out.println("sent match to /queue/matchmaking with "+userId+ " "+status+" "+gameId+" "+opponent+" "+fen+" "+color);
     }
 
-    public void sendGameEndedNotification(String userId, String gameId, String reason) {
-        messagingTemplate.convertAndSendToUser(
-            userId,
-            "/queue/game_ended",
-            Map.of("gameId", gameId, "reason", reason)
-        );
-    }
 
     public void sendError(String userId, String message) {
         messagingTemplate.convertAndSendToUser(
@@ -191,39 +181,137 @@ public class GameService {
     }
 
 
-public void addWaitingPlayer(String userId) {
-    List<Object> existingUsers = redisTemplate.opsForList().range(WAITING_PLAYERS_KEY, 0, -1);
-    if (existingUsers != null && existingUsers.contains(userId)) {
-        System.out.println("Player " + userId + " already in waiting list.");
-    } else {
-        redisTemplate.opsForList().rightPush(WAITING_PLAYERS_KEY, userId);
-        System.out.println("Player " + userId + " added to waiting list.");
+    public void addWaitingPlayer(String userId) {
+        List<Object> existingUsers = redisTemplate.opsForList().range(WAITING_PLAYERS_KEY, 0, -1);
+        if (existingUsers != null && existingUsers.contains(userId)) {
+            System.out.println("Player " + userId + " already in waiting list.");
+        } else {
+            redisTemplate.opsForList().rightPush(WAITING_PLAYERS_KEY, userId);
+            System.out.println("Player " + userId + " added to waiting list.");
+        }
     }
-}
 
 
 
-public void removeWaitingPlayer(String userId) {
-    Long removed = redisTemplate.opsForList().remove(WAITING_PLAYERS_KEY, 0, userId);
-    if (removed != null && removed > 0) {
-        System.out.println("Player " + userId + " removed from waiting list.");
-    } else {
-        System.out.println("Player " + userId + " was not found in waiting list.");
+    public void removeWaitingPlayer(String userId) {
+        Long removed = redisTemplate.opsForList().remove(WAITING_PLAYERS_KEY, 0, userId);
+        if (removed != null && removed > 0) {
+            System.out.println("Player " + userId + " removed from waiting list.");
+        } else {
+            System.out.println("Player " + userId + " was not found in waiting list.");
+        }
     }
-}
+
+    public int getRating(String userId){
+        Optional<User> optUser = userRepository.findByEmail(userId);
+        if(!optUser.isPresent()){
+            throw new IllegalArgumentException("user not found with "+userId);
+        }
+        User user = optUser.get();
+        int userRating = user.getRating();
+        return userRating;
+    }
 
 
 
-public String pollWaitingPlayer() {
-    Object player = redisTemplate.opsForList().leftPop(WAITING_PLAYERS_KEY);
-    return player != null ? player.toString() : null;
-}
+    public String pollWaitingPlayer(String userId) {
+        
+        
+        List<Object> candidates = redisTemplate.opsForList().range(WAITING_PLAYERS_KEY,0,-1);
+
+        if(candidates == null) return null;
+
+        int userRating = getRating(userId);
+
+        for(Object opponent : candidates){
+            String candidate = opponent.toString();
+
+            if (candidate.equals(userId)) continue;
+
+            int theirRating = getRating(candidate);
+            if (Math.abs(userRating - theirRating) <= MAX_RATING_DIFF) {
+                redisTemplate.opsForList().remove(WAITING_PLAYERS_KEY, 0, candidate);
+                return candidate;
+            }
+        }
+
+        return null;
+    }
 
 
 
-public boolean isPlayerWaiting(String userId) {
-    List<Object> existingUsers = redisTemplate.opsForList().range(WAITING_PLAYERS_KEY, 0, -1);
-    return existingUsers != null && existingUsers.contains(userId);
-}
+    public boolean isPlayerWaiting(String userId) {
+        List<Object> existingUsers = redisTemplate.opsForList().range(WAITING_PLAYERS_KEY, 0, -1);
+        return existingUsers != null && existingUsers.contains(userId);
+    }
+
+    public Game getPlayers(String gameId) {
+        Game game = gameRepository.getReferenceById(gameId);
+        System.out.println(game.getPlayer1Id());
+        return game;
+    }
+
+    public void handleGameOver(String gameId, String status, String winnerId,String loserId) {
+        Optional<Game> gameOpt = getGame(gameId);
+        if (gameOpt.isPresent()) {
+            Game game = gameOpt.get();
+            game.setStatus(status);
+            game.setWinnerId(winnerId);
+            redisTemplate.opsForValue().set(GAME_KEY_PREFIX + gameId, game, GAME_TTL_HOURS, TimeUnit.HOURS);
+            gameRepository.save(game);
+            System.out.println("Game " + gameId + " ended with status: " + status);
+            redisTemplate.delete("game:" + gameId);
+            System.out.println("cleared " + gameId + " in redis ");
+            GameOverReq payload = new GameOverReq(status, winnerId,loserId);
+            messagingTemplate.convertAndSend("/topic/game/" + gameId + "/gameover", payload);
+            updateRatings(winnerId, loserId);
+        }
+    }
+
+    public void changeRating(String userId,int newRating){
+        Optional<User> optUser = userRepository.findByEmail(userId);
+        if(!optUser.isPresent()){
+            throw new IllegalArgumentException("user not found with "+userId);
+        }
+        User winner = optUser.get();
+        winner.setRating(newRating);
+    }
+
+    public void updateRatings(String winnerId, String loserId) {
+        int winnerRating = getRating(winnerId);
+        int loserRating = getRating(loserId);
+
+        // Simple ELO formula
+        double expectedWin = 1 / (1 + Math.pow(10, (loserRating - winnerRating) / 400.0));
+        int k = 32;
+
+        int newWinnerRating = (int) Math.round(winnerRating + k * (1 - expectedWin));
+        int newLoserRating = (int) Math.round(loserRating + k * (0 - (1 - expectedWin)));
+
+        changeRating(winnerId,winnerRating);
+        changeRating(loserId,loserRating);
+
+        
+
+        System.out.printf("Updated ratings - %s: %d -> %d, %s: %d -> %d%n",
+                winnerId, winnerRating, newWinnerRating,
+                loserId, loserRating, newLoserRating);
+    }
+
+    public void addWaitingGuest(String guestId) {
+        redisTemplate.opsForList().rightPush(WAITING_GUEST_PLAYERS_KEY, guestId);
+    }
+
+    public String pollWaitingGuest(String currentGuestId) {
+        String other = (String) redisTemplate.opsForList().leftPop(WAITING_GUEST_PLAYERS_KEY);
+        return (other != null && !other.equals(currentGuestId)) ? other : null;
+    }
+
+    public void matchGuestPlayers() {
+        String guestId = "guest_"+new Random().nextInt(9000) + 1000;
+
+        System.out.println("Guest matchmaking request: " + guestId);
+
+    }
 
 }

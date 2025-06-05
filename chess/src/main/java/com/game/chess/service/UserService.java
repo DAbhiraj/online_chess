@@ -117,4 +117,15 @@ public class UserService {
     public List<User> getAllUsers() {
         return userRepository.findAll();
     }
+
+    public User getPlayer(String playerId){
+        Optional<User> useropt = userRepository.findByEmail(playerId);
+        if(!useropt.isPresent()){
+            throw new IllegalArgumentException("player not found with "+playerId);
+        }
+        User user = useropt.get();
+
+        return user;
+        
+    }
 }

@@ -4,8 +4,7 @@ package com.game.chess.model;
 import jakarta.persistence.*;
 import lombok.Data;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 @Entity
 @Table(name = "allusers")
@@ -23,9 +22,16 @@ public class User {
 
     private boolean isVerified = false;
 
+    private int rating = 800;
+    
     @ElementCollection(fetch = FetchType.EAGER)
     @Enumerated(EnumType.STRING)
     private Set<Role> roles = new HashSet<>();
+
+    @ManyToMany(mappedBy = "players")
+    @com.fasterxml.jackson.annotation.JsonBackReference
+    private List<Lobby> lobbies;
+
    
 
 }
