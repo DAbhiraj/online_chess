@@ -5,6 +5,7 @@ import HomePage from './pages/HomePage/HomePage';
 import Login from "./pages/Login.jsx";
 import LobbyManager from './pages/LobbyPage.jsx';
 import LobbyDetails from './pages/LobbyPlayers.jsx';
+import Particles from './assets/Particles.jsx';
 
 function App() {
   const [count, setCount] = useState(0)
@@ -15,8 +16,9 @@ function App() {
         <Route path="/chess/:gameId" element={<ChessboardComponent />} />
         <Route path="/login" element={<Login />} />
         <Route path="/" element={<HomePage />} />
-         <Route path="/lobby/:lobbyId" element={<LobbyDetails />} />
+        <Route path="/lobby/:lobbyId" element={<LobbyDetails />} />
         <Route path="/lobby" element={<LobbyManager />} />
+        <Route path="/particles" element={<Particles />} />
       </Routes>
     </Router>
   )

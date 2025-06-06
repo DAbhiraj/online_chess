@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
+import Particles from "../../assets/Particles"; // Assuming this path is correct
 
 const WEBSOCKET_URL = "http://localhost:8080/ws";
 
@@ -143,91 +144,71 @@ function HomePage() {
   };
 
   return (
-    <div className="home-page-container">
-      {TEST_JWT_TOKEN && (
-        <button onClick={handleLogout} style={{ marginTop: "10px" }}>
-          Logout
+    <div className="relative min-h-screen flex flex-col justify-center items-center bg-gray-100 font-sans text-gray-800 text-center">
+      {/* Particles Background */}
+      <div className="absolute inset-0 z-0">
+        <Particles
+          particleColors={['#ffffff', '#ffffff']}
+          particleCount={200}
+          particleSpread={10}
+          speed={0.1}
+          particleBaseSize={100}
+          moveParticlesOnHover={true}
+          alphaParticles={false}
+          disableRotation={false}
+        />
+      </div>
+
+      {/* Content Overlay */}
+      <div className="relative z-10 flex flex-col items-center p-5 max-w-2xl w-full">
+        {TEST_JWT_TOKEN ? (
+          <button
+            onClick={handleLogout}
+            className="mt-2 px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition duration-300 ease-in-out"
+          >
+            Logout
+          </button>
+        ):(<button
+            onClick={handleLoginRedirect}
+            className="mt-2 px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition duration-300 ease-in-out"
+          >
+            Login
+          </button>)}
+        <button
+          onClick={handleLobbyRedirect}
+          className="mt-4 px-6 py-3 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition duration-300 ease-in-out text-lg font-semibold"
+        >
+          Lobby
         </button>
-      )}
+        <h1 className="text-5xl font-extrabold text-blue-800 mt-8 mb-4">
+          Welcome to Chess Online!
+        </h1>
+        <p className="text-lg text-gray-700 mb-6">
+          Your User ID: {userIdRef.current || "Guest"}
+        </p>
 
-      <button onClick={handleLobbyRedirect}>Lobby</button>
-      <h1>Welcome to Chess Online!</h1>
-      <p>Your User ID: {userIdRef.current || "Guest"}</p>
+        {/* Conditional rendering based on matchmaking status */}
+        {matchmakingStatus === "idle" && (
+          <button
+            onClick={handlePlayGame}
+            className="px-8 py-4 text-2xl bg-green-600 text-white rounded-xl cursor-pointer transition duration-300 ease-in-out shadow-lg hover:bg-green-700 hover:scale-105 active:bg-green-800 active:scale-100 mt-8"
+          >
+            Play Game (Find Opponent)
+          </button>
+        )}
 
-      {/* Conditional rendering based on matchmaking status */}
-      {matchmakingStatus === "idle" && (
-        <button onClick={handlePlayGame} className="play-game-button">
-          Play Game (Find Opponent)
-        </button>
-      )}
+        {matchmakingStatus === "connecting" && (
+          <p className="italic text-gray-600 mt-4">Connecting to server...</p>
+        )}
 
-      {matchmakingStatus === "connecting" && (
-        <p className="status-message">Connecting to server...</p>
-      )}
+        {matchmakingStatus === "waiting" && (
+          <p className="italic text-gray-600 mt-4">Searching for opponent... Please wait.</p>
+        )}
 
-      {matchmakingStatus === "waiting" && (
-        <p className="status-message">Searching for opponent... Please wait.</p>
-      )}
-
-      {matchmakingStatus === "in_game" && gameId && (
-        <p className="status-message">Match found! Redirecting to game...</p>
-      )}
-
-      {/* Basic styling for the home page */}
-      <style>{`
-                .home-page-container {
-                    display: flex;
-                    flex-direction: column;
-                    justify-content: center;
-                    align-items: center;
-                    min-height: 100vh;
-                    background-color: #f0f2f5;
-                    font-family: 'Arial', sans-serif;
-                    color: #333;
-                    text-align: center;
-                }
-
-                h1 {
-                    color: #2c3e50;
-                    margin-bottom: 20px;
-                    font-size: 2.5em;
-                }
-
-                p {
-                    margin: 10px 0;
-                    font-size: 1.1em;
-                }
-
-                .play-game-button {
-                    padding: 15px 30px;
-                    font-size: 1.5em;
-                    background-color: #4CAF50; /* Green */
-                    color: white;
-                    border: none;
-                    border-radius: 8px;
-                    cursor: pointer;
-                    transition: background-color 0.3s ease, transform 0.2s ease;
-                    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-                    margin-top: 20px;
-                }
-
-                .play-game-button:hover {
-                    background-color: #45a049;
-                    transform: translateY(-2px);
-                }
-
-                .play-game-button:active {
-                    background-color: #3e8e41;
-                    transform: translateY(0);
-                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-                }
-
-                .status-message {
-                    font-style: italic;
-                    color: #555;
-                    margin-top: 15px;
-                }
-            `}</style>
+        {matchmakingStatus === "in_game" && gameId && (
+          <p className="italic text-gray-600 mt-4">Match found! Redirecting to game...</p>
+        )}
+      </div>
     </div>
   );
 }
