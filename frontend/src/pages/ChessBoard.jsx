@@ -2,7 +2,7 @@ import "./init.jsx";
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Chessboard } from "react-chessboard";
 import { Chess } from "chess.js";
-import { useLocation, useNavigate,useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import axios from "axios";
@@ -15,9 +15,6 @@ const moveSound = new Audio(moveSoundFile);
 function ChessboardComponent() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [whitePlayerId, setWhitePlayerId] = useState("");
-  const [blackPlayerId, setBlackPlayerId] = useState("");
-  console.log("Prototype of Chess:", Chess.prototype);
   const { gameId: initialGameId } = useParams();
   const { initialFen } = location.state || {};
 
@@ -31,39 +28,61 @@ function ChessboardComponent() {
   const [loadingGameState, setLoadingGameState] = useState(false);
   const [error, setError] = useState(null);
 
+  const [whitePlayerId, setWhitePlayerId] = useState("");
+  const [blackPlayerId, setBlackPlayerId] = useState("");
+
+  const whitePlayerIdRef = useRef("");
+  const blackPlayerIdRef = useRef("");
+
   const gameRef = useRef(game);
   const gameIdRef = useRef(gameId);
   const stompClientRef = useRef(stompClient);
   const isConnectedRef = useRef(isConnected);
-  const gameOverSentRef = useRef(false); // 👈 new flag
+  const gameOverSentRef = useRef(false);
 
   const playMoveSound = () => {
     moveSound.currentTime = 0;
     moveSound.play();
   };
 
+  // Keep gameRef in sync
   useEffect(() => {
     gameRef.current = game;
   }, [game]);
+
   useEffect(() => {
     gameIdRef.current = gameId;
   }, [gameId]);
+
   useEffect(() => {
     stompClientRef.current = stompClient;
   }, [stompClient]);
+
   useEffect(() => {
     isConnectedRef.current = isConnected;
   }, [isConnected]);
 
   useEffect(() => {
+    whitePlayerIdRef.current = whitePlayerId;
+  }, [whitePlayerId]);
+
+  useEffect(() => {
+    blackPlayerIdRef.current = blackPlayerId;
+  }, [blackPlayerId]);
+
+  useEffect(() => {
+    if (!initialGameId) {
+      console.warn("No gameId passed, redirecting to home...");
+      navigate("/");
+    }
+  }, [initialGameId, navigate]);
+
+  useEffect(() => {
     (async () => {
       if (initialGameId) {
         try {
-          const response = await axios.get(
-            `${API_BASE_URL}game/gameOver/${initialGameId}`
-          );
-          console.log("/gameover"+response.data);
-          const { player1Id, player2Id } = response.data; 
+          const response = await axios.get(`${API_BASE_URL}game/gameOver/${initialGameId}`);
+          const { player1Id, player2Id } = response.data;
           setWhitePlayerId(player1Id);
           setBlackPlayerId(player2Id);
         } catch (err) {
@@ -73,20 +92,11 @@ function ChessboardComponent() {
     })();
   }, [initialGameId]);
 
-  useEffect(() => {
-    if (!initialGameId) {
-      console.warn("No gameId passed, redirecting to home...");
-      navigate("/");
-    }
-  }, [initialGameId, navigate]);
-
   const fetchGameState = useCallback(async () => {
     if (!gameIdRef.current) return;
     setLoadingGameState(true);
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}game/${gameIdRef.current}`
-      );
+      const response = await axios.get(`${API_BASE_URL}game/${gameIdRef.current}`);
       if (response.data?.fen) {
         const updatedGame = new Chess(response.data.fen);
         setGame(updatedGame);
@@ -158,11 +168,11 @@ function ChessboardComponent() {
   }, [gameId, navigate, fetchGameState]);
 
   function getGameOverReasonAndWinner(game) {
-    const reason = game.inCheckmate()
+    const reason = game.in_checkmate()
       ? "checkmate"
-      : game.inStalemate()
+      : game.in_stalemate()
       ? "stalemate"
-      : game.isDraw()
+      : game.in_draw()
       ? "draw"
       : game.isInsufficientMaterial()
       ? "insufficient_material"
@@ -171,14 +181,15 @@ function ChessboardComponent() {
       : "unknown";
 
     let winnerId = null;
-    console.log(reason);
+    let loserId = null;
+
     if (reason === "checkmate") {
       const winnerColor = game.turn() === "w" ? "b" : "w";
-      winnerId = winnerColor === "w" ? whitePlayerId : blackPlayerId;
-      console.log("WINNER "+winnerId);
+      winnerId = winnerColor === "w" ? whitePlayerIdRef.current : blackPlayerIdRef.current;
+      loserId = winnerColor === "w" ? blackPlayerIdRef.current : whitePlayerIdRef.current;
     }
 
-    return { reason, winnerId };
+    return { reason, winnerId, loserId };
   }
 
   const sendMoveToBackend = useCallback((moveDetails) => {
@@ -197,7 +208,7 @@ function ChessboardComponent() {
         return false;
       }
 
-      const gameCopy = new Chess(gameRef.current.fen()); // This creates the Chess object
+      const gameCopy = new Chess(gameRef.current.fen());
 
       const move = gameCopy.move({
         from: sourceSquare,
@@ -216,21 +227,16 @@ function ChessboardComponent() {
           fenAfterMove: gameCopy.fen(),
         });
 
-        console.log("game over "+gameCopy.game_over());
         if (gameCopy.game_over() && !gameOverSentRef.current) {
           gameOverSentRef.current = true;
-          const { reason, winnerId } = getGameOverReasonAndWinner(gameCopy);
-          if (
-            stompClientRef.current &&
-            isConnectedRef.current &&
-            gameIdRef.current
-          ) {
-            stompClientRef.current.publish({
-              destination: `/app/game.over/${gameIdRef.current}`,
-              body: JSON.stringify({ reason, winnerId }),
-            });
-            console.log("Sent game over event.");
-          }
+          const { reason, winnerId, loserId } = getGameOverReasonAndWinner(gameCopy);
+
+          stompClientRef.current?.publish({
+            destination: `/app/game.over/${gameIdRef.current}`,
+            body: JSON.stringify({ reason, winnerId, loserId }),
+          });
+
+          console.log("Sent game over event.");
         }
         return true;
       }
@@ -246,11 +252,12 @@ function ChessboardComponent() {
       gameIdRef.current &&
       !gameOverSentRef.current
     ) {
-      gameOverSentRef.current = true; // prevent duplicates
-
-      const resigningPlayerId = localStorage.getItem("userId"); // or fetch it from context/auth
+      gameOverSentRef.current = true;
+      const resigningPlayerId = localStorage.getItem("userId");
       const winnerId =
-        resigningPlayerId === whitePlayerId ? blackPlayerId : whitePlayerId;
+        resigningPlayerId === whitePlayerIdRef.current
+          ? blackPlayerIdRef.current
+          : whitePlayerIdRef.current;
 
       stompClientRef.current.publish({
         destination: `/app/game.over/${gameIdRef.current}`,
@@ -293,10 +300,9 @@ function ChessboardComponent() {
           <p>Current Turn: {game.turn() === "w" ? "White" : "Black"}</p>
         </>
       ) : (
-        !loadingGameState && (
-          <p>Waiting for game to load or connection to establish...</p>
-        )
+        !loadingGameState && <p>Waiting for game to load or connection to establish...</p>
       )}
+
       <button onClick={handleEnd}>End Game</button>
     </div>
   );

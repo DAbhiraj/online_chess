@@ -1,9 +1,11 @@
 package com.game.chess.controller;
 
 
+import com.game.chess.dto.ConfirmationRequest;
 import com.game.chess.dto.GameOverReq;
 import com.game.chess.dto.GameStateDTO;
 import com.game.chess.dto.LobbyDto;
+import com.game.chess.dto.MatchMakingConfirmation;
 import com.game.chess.dto.MoveRequest;
 import com.game.chess.dto.PlayerDTO;
 import com.game.chess.model.User;
@@ -14,6 +16,8 @@ import java.security.Principal;
 import java.util.List;
 import java.util.Optional;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -37,6 +41,8 @@ public class GameController {
     @Autowired
     private LobbyService lobbyService;
 
+    private static final Logger logger = LoggerFactory.getLogger(GameController.class);
+
 
     public GameController(SimpMessageSendingOperations messagingTemplate) {
         this.messagingTemplate = messagingTemplate;
@@ -45,16 +51,15 @@ public class GameController {
     @MessageMapping("/game.find")
     public void findGame(SimpMessageHeaderAccessor headerAccessor) {
         Principal principal = headerAccessor.getUser();
-        System.out.println("got in backend");
-        System.out.println(principal);
-        if (principal == null) {
-            //gameService.sendError(headerAccessor.getSessionId(), "Authentication required");
-            gameService.matchGuestPlayers();
+        logger.info("got in backend");
+        logger.debug("principal is {}",principal);
+        String userId = principal.getName();
+        logger.info("Matchmaking request from: " + userId);
+
+        if (userId.startsWith("guest-")) {
+            gameService.matchGuestPlayers(userId);
             return;
         }
-
-        String userId = principal.getName();
-        System.out.println("Matchmaking request from: " + userId);
 
         // Check if already in queue
         if (gameService.isPlayerWaiting(userId)) {
@@ -89,18 +94,21 @@ public class GameController {
             SimpMessageHeaderAccessor headerAccessor) {
         
         Principal principal = headerAccessor.getUser();
-        if (principal == null) {
-            gameService.sendError(headerAccessor.getSessionId(), "Authentication required");
+        String userId = principal.getName();
+        if (userId.startsWith("guest-")) {
+            GameStateDTO updatedState = gameService.processMoveForGuests(gameId, moveRequest);
+            messagingTemplate.convertAndSend("/topic/game/" + gameId, updatedState);
+            logger.info("Broadcasted move for game " + gameId);
             return;
         }
 
-        String userId = principal.getName();
-        System.out.println("Move received from " + userId + " in game " + gameId);
-        System.out.println("MoveRequest: " + moveRequest);
+       
+        logger.debug("Move received from " + userId + " in game " + gameId);
+        logger.debug("MoveRequest: " + moveRequest);
         try {
             GameStateDTO updatedState = gameService.processMove(gameId, moveRequest);
             messagingTemplate.convertAndSend("/topic/game/" + gameId, updatedState);
-            System.out.println("Broadcasted move for game " + gameId);
+            logger.info("Broadcasted move for game " + gameId);
             
         } catch (Exception e) {
             System.err.println("Move processing error: " + e.getMessage());
@@ -144,6 +152,7 @@ public class GameController {
         @Payload String targetUserId,
         SimpMessageHeaderAccessor headerAccessor
     ) {
+        logger.debug("inside the match with specific with "+targetUserId);
         Principal principal = headerAccessor.getUser();
         if (principal == null) {
             gameService.sendError(headerAccessor.getSessionId(), "Authentication required");
@@ -155,14 +164,14 @@ public class GameController {
         LobbyDto lobby = lobbyService.getLobbyDTO(lobbyId);
         List<PlayerDTO> players = lobby.getPlayers();
 
-        System.out.println("targetUserId is "+targetUserId);
-        System.out.println("userId is "+userId);
+        logger.debug("targetUserId is "+targetUserId);
+        logger.debug("userId is "+userId);
 
         boolean Player1 = players.stream().anyMatch(p -> p.getEmail().toString().equals(targetUserId));
         boolean Player2 = players.stream().anyMatch(p -> p.getEmail().toString().equals(userId));
 
-        System.out.println("is player1 present? "+Player1);
-        System.out.println("is player2 present? "+Player2);
+        logger.debug("is player1 present? "+Player1);
+        logger.debug("is player2 present? "+Player2);
 
         boolean bothPresent = Player1 && Player2;
 
@@ -170,26 +179,37 @@ public class GameController {
             gameService.sendMatchmakingResponse(userId, "target_not_in_lobby", null, null, null, null);
             return;
         }
-        
-        String gameId = gameService.createNewGame(userId, targetUserId);
-        String fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
-        gameService.sendMatchmakingResponse(userId, "success", gameId, targetUserId, fen, "white");
-        gameService.sendMatchmakingResponse(targetUserId, "success", gameId, userId, fen, "black");
-        
+        messagingTemplate.convertAndSendToUser(targetUserId, "/queue/matchmaking/request", new MatchMakingConfirmation(userId, lobbyId)); 
     }
 
-    // @MessageMapping("/matchmaking/confirm")
-    // public void confirmMatch(ConfirmationRequest request) {
-    //     if (request.isConfirmed()) {
-    //         gameService.createGame(request.getGameId()); // Only now create the game
+    @MessageMapping("/matchmaking/confirm")
+    public void confirmMatch(ConfirmationRequest request, SimpMessageHeaderAccessor headerAccessor) {
+        Principal principal = headerAccessor.getUser();
+        if (principal == null) {
+            gameService.sendError(headerAccessor.getSessionId(), "Authentication required");
+            return;
+        }
 
-            
-    //     } else {
-    //         // Notify initiator of rejection
-    //         messagingTemplate.convertAndSendToUser(request.getInitiatorEmail(), "/queue/rejected", new RejectedMessage("user rejected the request"));
-    //     }
-    // }
+        String userId = principal.getName(); // The user who is confirming the match
+        String initiatorId = request.getInitiatorEmail(); // The user who initiated the match request
+
+         if (request.isConfirmed()) {
+            // Ensure the confirmation is coming from the *target* user and for the correct initiator.
+            // You might want to add more robust validation here, e.g., checking a pending match request.
+            // For simplicity, assuming 'initiatorId' is the 'targetUserId' from the previous step.
+
+            String gameId = gameService.createNewGame(initiatorId, userId); // initiatorId is player1, userId is player2
+            String fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
+            // Send success response to both players
+            gameService.sendMatchmakingResponse(initiatorId, "success", gameId, userId, fen, "white");
+            gameService.sendMatchmakingResponse(userId, "success", gameId, initiatorId, fen, "black"); 
+        } else {
+        // Notify initiator of rejection
+            messagingTemplate.convertAndSendToUser(request.getInitiatorEmail(), "/queue/rejected", "user rejected the request");
+         }
+    }
 
 
 

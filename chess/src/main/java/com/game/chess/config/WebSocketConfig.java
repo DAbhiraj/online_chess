@@ -3,7 +3,10 @@ package com.game.chess.config;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -18,6 +21,9 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 import org.springframework.web.socket.server.HandshakeInterceptor;
 import org.springframework.web.socket.server.support.DefaultHandshakeHandler;
 import org.springframework.web.util.UriComponentsBuilder;
+
+import com.game.chess.service.GameService;
+
 import javax.crypto.SecretKey;
 import java.security.Principal;
 import java.util.Base64;
@@ -25,12 +31,16 @@ import java.util.Map;
 
 @Configuration
 @EnableWebSocketMessageBroker
+@Slf4j
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Value("${security.jwt.secret-key}")
     private String jwtSecretBase64;
 
     private SecretKey secretKey;
+
+    //private static final Logger logger = LoggerFactory.getLogger(WebSocketConfig.class);
+
 
     @PostConstruct
     public void init() {
@@ -65,45 +75,49 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response,
-                                 WebSocketHandler wsHandler, Map<String, Object> attributes) {
-        
-        // Extract token from query parameters only
-        String token = UriComponentsBuilder.fromUri(request.getURI())
-            .build()
-            .getQueryParams()
-            .getFirst("token");
+                               WebSocketHandler wsHandler, Map<String, Object> attributes) {
 
-        if (token == null || token.isBlank()) {
-            response.setStatusCode(HttpStatus.UNAUTHORIZED);
-            return false;
-        }
+    String token = UriComponentsBuilder.fromUri(request.getURI())
+        .build()
+        .getQueryParams()
+        .getFirst("token");
 
-        try {
-            Claims claims = Jwts.parserBuilder()
-                .setSigningKey(secretKey)
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
+    log.debug("token is "+token);
 
-            String username = claims.getSubject();
-            System.out.println("Authenticating WebSocket connection for user: " + username);
-            
-            // Create Principal and store in attributes
-            Principal principal = () -> username;
-            attributes.put("user", principal);
-            
-            return true;
-
-        } catch (ExpiredJwtException e) {
-            System.err.println("JWT expired: " + e.getMessage());
-            response.setStatusCode(HttpStatus.UNAUTHORIZED);
-        } catch (JwtException e) {
-            System.err.println("Invalid JWT: " + e.getMessage());
-            response.setStatusCode(HttpStatus.UNAUTHORIZED);
-        }
-
-        return false;
+    if (token == null || token.isBlank()|| token.equalsIgnoreCase("null")) {
+        // Allow guest access
+        String guestId = "guest-" + java.util.UUID.randomUUID();
+        System.out.println("Allowing guest connection with ID: " + guestId);
+        Principal principal = () -> guestId;
+        attributes.put("user", principal);
+        return true;
     }
+
+    try {
+        Claims claims = Jwts.parserBuilder()
+            .setSigningKey(secretKey)
+            .build()
+            .parseClaimsJws(token)
+            .getBody();
+
+        String username = claims.getSubject();
+        System.out.println("Authenticating WebSocket connection for user: " + username);
+
+        Principal principal = () -> username;
+        attributes.put("user", principal);
+        return true;
+
+    } catch (ExpiredJwtException e) {
+        log.error("JWT expired: " + e.getMessage());
+        response.setStatusCode(HttpStatus.UNAUTHORIZED);
+    } catch (JwtException e) {
+        log.error("Invalid JWT: "+token+" "+ e.getMessage());
+        response.setStatusCode(HttpStatus.UNAUTHORIZED);
+    }
+
+    return false;
+}
+
 
     @Override
     public void afterHandshake(ServerHttpRequest request, ServerHttpResponse response,

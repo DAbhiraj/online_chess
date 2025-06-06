@@ -37,9 +37,12 @@ public class GameRestController {
     @GetMapping("game/gameOver/{gameId}")
     public PlayerResponse getPlayersId(@PathVariable String gameId) {
         System.out.println("going to get player ids");
-        Game game = gameService.getPlayers(gameId);
+        Game game = gameService.getGuestGame(gameId);
         PlayerResponse playerResponse = new PlayerResponse(game.getPlayer1Id(),game.getPlayer2Id());
+       
         System.out.println("getting player ids "+playerResponse.getPlayer1Id()+" "+playerResponse.getPlayer2Id());
+        
+            
         return playerResponse;
     }
 

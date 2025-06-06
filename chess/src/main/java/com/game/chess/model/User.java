@@ -32,6 +32,10 @@ public class User {
     @com.fasterxml.jackson.annotation.JsonBackReference
     private List<Lobby> lobbies;
 
+    // @ManyToMany(mappedBy = "friends")
+    // @com.fasterxml.jackson.annotation.JsonBackReference
+    // private List<User> friends;
+
    
 
 }

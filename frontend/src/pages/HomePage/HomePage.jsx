@@ -11,8 +11,7 @@ function HomePage() {
   const [isConnected, setIsConnected] = useState(false);
   const [matchmakingStatus, setMatchmakingStatus] = useState("idle"); // 'idle', 'connecting', 'waiting', 'in_game'
   const [gameId, setGameId] = useState(null); // Will store the gameId once matched
-
-
+  const [matchDetails, setMatchDetails] = useState(null);
   const userIdRef = useRef(localStorage.getItem("email")); // Use the actual user ID from your generated JWT
 
   const TEST_JWT_TOKEN = localStorage.getItem("authToken"); // REPLACE THIS WITH YOUR GENERATED TOKEN
@@ -24,15 +23,27 @@ function HomePage() {
   }, [stompClient]);
 
   useEffect(() => {
+    if (matchDetails?.gameId) {
+      navigate(`/chess/${matchDetails.gameId}`, {
+        state: {
+          gameId: matchDetails.gameId,
+          initialFen: matchDetails.fen,
+        },
+      });
+    }
+  }, [matchDetails, navigate]);
+
+  useEffect(() => {
     // Append the JWT token as a query parameter to the WebSocket URL.
     // This is a common workaround for SockJS when `connectHeaders` are not reliably passed
     // during the initial HTTP handshake for fallback transports.
-    const websocketUrlWithToken = `${WEBSOCKET_URL}?token=${TEST_JWT_TOKEN}`;
+    const websocketUrlWithToken = TEST_JWT_TOKEN
+      ? `${WEBSOCKET_URL}?token=${TEST_JWT_TOKEN}`
+      : `${WEBSOCKET_URL}`;
     console.log("url is " + websocketUrlWithToken);
     const client = new Client({
-      webSocketFactory: () =>
-        new SockJS(websocketUrlWithToken),
-        reconnectDelay: 5000,
+      webSocketFactory: () => new SockJS(websocketUrlWithToken),
+      reconnectDelay: 5000,
     });
 
     client.onConnect = (frame) => {
@@ -48,14 +59,8 @@ function HomePage() {
           const matchDetails = JSON.parse(message.body);
           console.log("Received matchmaking details (HomePage):", matchDetails);
           if (matchDetails.gameId) {
-            setGameId(matchDetails.gameId);
+            setMatchDetails(matchDetails);
             setMatchmakingStatus("in_game");
-            navigate("/chess", {
-              state: {
-                gameId: matchDetails.gameId,
-                initialFen: matchDetails.fen,
-              },
-            });
 
             if (stompClientRef.current && stompClientRef.current.connected) {
               stompClientRef.current.deactivate();
@@ -124,19 +129,30 @@ function HomePage() {
   }, [stompClient, matchmakingStatus]);
 
   const handleLoginRedirect = () => {
-    navigate('/login');
-  }
+    navigate("/login");
+  };
 
-    const handleLobbyRedirect = () => {
-    navigate('/lobby');
-  }
+  const handleLobbyRedirect = () => {
+    navigate("/lobby");
+  };
+
+  const handleLogout = () => {
+    localStorage.clear();
+
+    navigate("/");
+  };
 
   return (
     <div className="home-page-container">
-      <button onClick = {handleLoginRedirect}>login</button>
-      <button onClick = {handleLobbyRedirect}>Lobby</button>
+      {TEST_JWT_TOKEN && (
+        <button onClick={handleLogout} style={{ marginTop: "10px" }}>
+          Logout
+        </button>
+      )}
+
+      <button onClick={handleLobbyRedirect}>Lobby</button>
       <h1>Welcome to Chess Online!</h1>
-      <p>Your User ID: {userIdRef.current}</p>
+      <p>Your User ID: {userIdRef.current || "Guest"}</p>
 
       {/* Conditional rendering based on matchmaking status */}
       {matchmakingStatus === "idle" && (

@@ -11,7 +11,7 @@ const LobbyDetails = () => {
   const [players, setPlayers] = useState([]);
   const [stompClient, setStompClient] = useState(null);
 
-  const WEBSOCKET_URL = `http://localhost:8080/ws`; // add token if needed
+  const WEBSOCKET_URL = `http://localhost:8080/ws`;
   const API_BASE = "http://localhost:8080/api/lobby";
   const token = localStorage.getItem("authToken");
   const websocketUrlWithToken = `${WEBSOCKET_URL}?token=${token}`;
@@ -41,17 +41,39 @@ const LobbyDetails = () => {
     client.onConnect = () => {
       console.log("✅ Connected to matchmaking");
 
-      // Subscribe to matchmaking results for current user
+      // 1. Subscribe to matchmaking request (as invited player)
       client.subscribe("/user/queue/matchmaking", (message) => {
         const data = JSON.parse(message.body);
-        console.log("Matchmaking Response:", data);
+        console.log("Received matchmaking request:", data);
 
-        if (data.status === "success") {
-          if (data.color === "black") {
-            // You are the invited player
-            alert(`🔔 ${data.opponentId} challenged you to a game!`);
-          }
+        if (data.status === "success" && data.gameId) {
+          // Already confirmed, redirect immediately
           navigate(`/chess/${data.gameId}`);
+        } 
+      });
+
+      // 2. Subscribe to rejection notice (for inviter)
+      client.subscribe("/user/queue/rejected", (message) => {
+        alert("❌ Your matchmaking request was rejected.");
+      });
+
+      client.subscribe("/user/queue/matchmaking/request",(message)=>{
+        const data = JSON.parse(message.body);
+        console.log("Received matchmaking request:", data);
+        if (data.userId && data.lobbyId) {
+          const confirm = window.confirm(
+            `🔔 ${data.userId} invited you to a game. Accept?`
+          );
+
+          const confirmationPayload = {
+            initiatorEmail: data.userId,
+            confirmed: confirm,
+          };
+
+          client.publish({
+            destination: `/app/matchmaking/confirm`,
+            body: JSON.stringify(confirmationPayload),
+          });
         }
       });
 
