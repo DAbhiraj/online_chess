@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
+import Particles from "../assets/Particles";
 
 const Login = () => {
   const [credentials, setCredentials] = useState({ email: "", password: "" });
@@ -43,7 +44,20 @@ const Login = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-black px-4">
+    <div className="relative min-h-screen flex flex-col justify-center items-center bg-black font-sans text-black-800 text-center">
+      <div className="absolute inset-0 z-0">
+        <Particles
+          particleColors={["#ffffff", "#ffffff"]}
+          particleCount={200}
+          particleSpread={10}
+          speed={0.1}
+          particleBaseSize={100}
+          moveParticlesOnHover={true}
+          alphaParticles={false}
+          disableRotation={false}
+        />
+      </div>
+    <div className="flex items-center justify-center min-h-screen bg-black px-4 z-100 opacity-80">
       <div className="w-100  max-w-3xl bg-[#111827] rounded-2xl shadow-xl p-10">
         <h2 className="text-white text-3xl font-extrabold text-center mb-8">Welcome Back</h2>
         <form onSubmit={handleSubmit} className="flex flex-col gap-6">
@@ -98,6 +112,7 @@ const Login = () => {
           </div>
         </form>
       </div>
+    </div>
     </div>
   );
 };

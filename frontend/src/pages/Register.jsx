@@ -1,13 +1,13 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import Particles from "../assets/Particles";
 
 const Register = () => {
   const [userData, setUserData] = useState({
     name: "",
     email: "",
-    password: "",
-    club: ""
+    password: ""
   });
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -33,7 +33,20 @@ const Register = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-black px-4">
+    <div className="relative min-h-screen flex flex-col justify-center items-center bg-black font-sans text-black-800 text-center">
+      <div className="absolute inset-0 z-0">
+        <Particles
+          particleColors={["#ffffff", "#ffffff"]}
+          particleCount={200}
+          particleSpread={10}
+          speed={0.1}
+          particleBaseSize={100}
+          moveParticlesOnHover={true}
+          alphaParticles={false}
+          disableRotation={false}
+        />
+      </div>
+    <div className="flex items-center justify-center min-h-screen bg-black px-4 z-100 opacity-80">
       <div className="w-120 max-w-3xl bg-[#111827] rounded-2xl shadow-xl p-10">
         <h2 className="text-white text-3xl font-extrabold text-center mb-8">Register</h2>
         <form onSubmit={handleSubmit} className="flex flex-col gap-6">
@@ -61,14 +74,7 @@ const Register = () => {
             onChange={(e) => setUserData({ ...userData, password: e.target.value })}
             className="p-4 rounded-md bg-transparent border border-gray-500 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          <input
-            type="text"
-            placeholder="Club"
-            required
-            value={userData.club}
-            onChange={(e) => setUserData({ ...userData, club: e.target.value })}
-            className="p-4 rounded-md bg-transparent border border-gray-500 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+         
 
           {errorMsg && <p className="text-red-500 text-sm">{errorMsg}</p>}
           {successMsg && <p className="text-green-500 text-sm">{successMsg}</p>}
@@ -89,6 +95,7 @@ const Register = () => {
           </div>
         </form>
       </div>
+    </div>
     </div>
   );
 };

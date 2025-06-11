@@ -3,6 +3,7 @@ import  { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import Particles from '../assets/Particles';
 
 
 const App = () => {
@@ -34,11 +35,24 @@ const App = () => {
 
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-gray-900 to-black font-inter">
+    <div className="relative  flex flex-col justify-center items-center bg-black font-sans text-black-800 text-center">
+      <div className="absolute inset-0 z-0">
+        <Particles
+          particleColors={["#ffffff", "#ffffff"]}
+          particleCount={200}
+          particleSpread={10}
+          speed={0.1}
+          particleBaseSize={100}
+          moveParticlesOnHover={true}
+          alphaParticles={false}
+          disableRotation={false}
+        />
+      </div>
+    <div className="min-h-screen flex flex-col items-center w-270 justify-center p-4  font-inter z-100 opacity-80">
       <h2 className="text-white text-4xl font-extrabold text-center mb-10 tracking-wide">User Profile</h2>
       <div className="flex flex-col lg:flex-row items-start lg:justify-center gap-8 w-full max-w-6xl"> {/* Flex container for side-by-side layout */}
         
-        <div className="bg-gray-800 bg-opacity-70 backdrop-blur-sm p-8 rounded-xl shadow-2xl w-full lg:w-1/2 border border-gray-700">
+        <div className=" bg-opacity-70 backdrop-blur-sm p-8 rounded-xl shadow-2xl w-full lg:w-1/2 ">
           <ProfileRow label="User Name" value={userData.userName} />
           <ProfileRow label="Email" value={userData.email} />
           <ProfileRow label="Matches Played" value={userData.matchesPlayed} />
@@ -52,7 +66,7 @@ const App = () => {
       
         <div className="flex flex-col w-full lg:w-1/2 gap-8">
          
-          <div className="bg-gray-800 bg-opacity-70 backdrop-blur-sm p-8 rounded-xl shadow-2xl border border-gray-700">
+          <div className=" bg-opacity-70 backdrop-blur-sm p-8 rounded-xl shadow-2xl ">
             <h3 className="text-white text-2xl font-bold text-center mb-4">Win/Loss Ratio</h3>
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
@@ -103,6 +117,7 @@ const App = () => {
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 };

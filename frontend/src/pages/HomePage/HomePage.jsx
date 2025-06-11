@@ -5,7 +5,6 @@ import SockJS from "sockjs-client";
 import Particles from "../../assets/Particles"; // Assuming this path is correct
 import GooeyNav from "../../assets/GoevyNav";
 import BackgroundLetterAvatars from "../../assets/Avatar";
-
 const WEBSOCKET_URL = "http://localhost:8080/ws";
 
 function HomePage() {
@@ -146,10 +145,11 @@ function HomePage() {
   const items = [
     { label: "Home", href: "/" },
     { label: "Lobby", href: "/lobby" },
+    { label: "Profile", href: "/profile" },
   ];
 
   return (
-    <div className="relative min-h-screen flex flex-col justify-center items-center bg-gray-100 font-sans text-gray-800 text-center">
+    <div className="relative min-h-screen flex flex-col justify-center items-center bg-black font-sans text-black-800 text-center">
       {/* Particles Background */}
       <div className="absolute inset-0 z-0">
         <Particles
@@ -178,7 +178,7 @@ function HomePage() {
       </div>
 
       {/* Content Overlay */}
-      <div className="relative z-10 flex flex-col items-center p-5 max-w-2xl w-full">
+      <div className="absolute items-center  top-2 right-2 z-20">
         {TEST_JWT_TOKEN ? (
           <button
             onClick={handleLogout}
@@ -189,31 +189,43 @@ function HomePage() {
         ) : (
           <button
             onClick={handleLoginRedirect}
-            className="mt-4 px-6 py-3 bg-red-500 text-white rounded-lg  hover:bg-red-600 transition duration-300 ease-in-out text-lg font-semibold cursor-pointer  shadow-lg  hover:scale-105 active:bg-green-800 active:scale-100 "
+            className="mt-2 px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition duration-300 ease-in-out"
           >
             Login
-          </button>)}
-        <button
-          onClick={handleLobbyRedirect}
-          className="mt-4 px-6 py-3 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition duration-300 ease-in-out text-lg font-semibold"
-        >
-          Lobby
-        </button>
-        <h1 className="text-5xl font-extrabold text-blue-800 mt-8 mb-4">
-          Welcome to Chess Online!
-        </h1>
-        <p className="text-lg text-gray-700 mb-6">
-          Your User ID: {userIdRef.current || "Guest"}
-        </p>
-
-        {/* Conditional rendering based on matchmaking status */}
-        {matchmakingStatus === "idle" && (
-          <button
-            onClick={handlePlayGame}
-            className="px-8 py-4 text-2xl bg-green-600 text-white rounded-xl cursor-pointer transition duration-300 ease-in-out shadow-lg hover:bg-green-700 hover:scale-105 active:bg-green-800 active:scale-100 mt-8"
-          >
-            Play Game (Find Opponent)
           </button>
+        )}
+      </div>
+      <div className="relative z-10 top-0 right-0 flex flex-col items-center p-5 max-w-2xl w-full">
+        <h1 className="text-5xl font-extrabold text-blue-200 mt-8 mb-4">
+          Welcome to Chess Online
+        </h1>
+
+        {userIdRef.current ? (
+          <>
+            <p className="text-2xl text-white mb-6">
+              {localStorage.getItem("name")} !!
+            </p>
+            {matchmakingStatus === "idle" && (
+              <button
+                onClick={handlePlayGame}
+                className="px-8 py-4 text-2xl bg-green-600 text-white rounded-xl cursor-pointer transition duration-300 ease-in-out shadow-lg hover:bg-green-700 hover:scale-105 active:bg-green-800 active:scale-100 mt-8"
+              >
+                Play Game
+              </button>
+            )}
+          </>
+        ) : (
+          <>
+
+            {matchmakingStatus === "idle" && (
+              <button
+                onClick={handlePlayGame}
+                className="px-8 py-4 text-2xl bg-green-600 text-white rounded-xl cursor-pointer transition duration-300 ease-in-out shadow-lg hover:bg-green-700 hover:scale-105 active:bg-green-800 active:scale-100 mt-8"
+              >
+                Play Game As Guest
+              </button>
+            )}
+          </>
         )}
 
         {matchmakingStatus === "connecting" && (
