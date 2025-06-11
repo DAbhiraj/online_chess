@@ -2,7 +2,9 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
-import Particles from "../../assets/Particles"; // Assuming this path is correct
+import Particles from "../../assets/Particles"; 
+import Profile from "../Profile";
+import { Link } from 'react-router-dom';
 
 const WEBSOCKET_URL = "http://localhost:8080/ws";
 
@@ -144,7 +146,7 @@ function HomePage() {
   };
 
   return (
-    <div className="relative min-h-screen flex flex-col justify-center items-center bg-gray-100 font-sans text-gray-800 text-center">
+    <div className="relative min-h-screen flex flex-col justify-center items-center bg-black font-sans text-gray-800 text-center">
       {/* Particles Background */}
       <div className="absolute inset-0 z-0">
         <Particles
@@ -161,6 +163,22 @@ function HomePage() {
 
       {/* Content Overlay */}
       <div className="relative z-10 flex flex-col items-center p-5 max-w-2xl w-full">
+         <Link to="/profile" className="font-extrabold text-blue-300 text-2xl ">Go to Profile</Link>
+        <h1 className="text-5xl font-extrabold text-blue-800 mt-8 mb-4 ">
+          Welcome to Chess Online!
+        </h1>
+        <br />
+        <p className="text-lg text-gray-700 mb-6">
+          Your User ID: {userIdRef.current || "Guest"}
+        </p>
+        
+        <button
+          onClick={handleLobbyRedirect}
+          className="mt-4 px-6 py-3 bg-blue-500 text-white rounded-lg  cursor-pointer transition duration-300 ease-in-out shadow-lg hover:bg-blue-700 hover:scale-105 active:bg-red-800 active:scale-100  font-semibold"
+        >
+          Lobby
+        </button>
+        <br />
         {TEST_JWT_TOKEN ? (
           <button
             onClick={handleLogout}
@@ -170,22 +188,13 @@ function HomePage() {
           </button>
         ):(<button
             onClick={handleLoginRedirect}
-            className="mt-2 px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition duration-300 ease-in-out"
+            className="mt-4 px-6 py-3 bg-red-500 text-white rounded-lg  hover:bg-red-600 transition duration-300 ease-in-out text-lg font-semibold cursor-pointer  shadow-lg  hover:scale-105 active:bg-green-800 active:scale-100 "
           >
             Login
           </button>)}
-        <button
-          onClick={handleLobbyRedirect}
-          className="mt-4 px-6 py-3 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition duration-300 ease-in-out text-lg font-semibold"
-        >
-          Lobby
-        </button>
-        <h1 className="text-5xl font-extrabold text-blue-800 mt-8 mb-4">
-          Welcome to Chess Online!
-        </h1>
-        <p className="text-lg text-gray-700 mb-6">
-          Your User ID: {userIdRef.current || "Guest"}
-        </p>
+        
+        
+        
 
         {/* Conditional rendering based on matchmaking status */}
         {matchmakingStatus === "idle" && (

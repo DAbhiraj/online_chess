@@ -73,7 +73,7 @@ function LobbyManager() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto mt-10 p-6 bg-white shadow-lg rounded-lg">
+    <div className="h-130 border-2 px-20 py-20 flex flex-col gap-3 justify-center max-w-3xl mx-auto mt-10 p-6 bg-white shadow-lg rounded-lg">
       <h2 className="text-2xl font-bold text-center mb-4 text-gray-800">🎮 Lobby Manager</h2>
 
       <div className="mb-6 flex gap-2">
