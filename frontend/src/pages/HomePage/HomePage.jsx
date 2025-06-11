@@ -2,9 +2,9 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
-import Particles from "../../assets/Particles"; 
-import Profile from "../Profile";
-import { Link } from 'react-router-dom';
+import Particles from "../../assets/Particles"; // Assuming this path is correct
+import GooeyNav from "../../assets/GoevyNav";
+import BackgroundLetterAvatars from "../../assets/Avatar";
 
 const WEBSOCKET_URL = "http://localhost:8080/ws";
 
@@ -141,16 +141,19 @@ function HomePage() {
 
   const handleLogout = () => {
     localStorage.clear();
-
-    navigate("/");
+    window.location.reload();
   };
+  const items = [
+    { label: "Home", href: "/" },
+    { label: "Lobby", href: "/lobby" },
+  ];
 
   return (
-    <div className="relative min-h-screen flex flex-col justify-center items-center bg-black font-sans text-gray-800 text-center">
+    <div className="relative min-h-screen flex flex-col justify-center items-center bg-gray-100 font-sans text-gray-800 text-center">
       {/* Particles Background */}
       <div className="absolute inset-0 z-0">
         <Particles
-          particleColors={['#ffffff', '#ffffff']}
+          particleColors={["#ffffff", "#ffffff"]}
           particleCount={200}
           particleSpread={10}
           speed={0.1}
@@ -161,24 +164,21 @@ function HomePage() {
         />
       </div>
 
+      <div className="absolute items-center  top-5  z-20">
+        <GooeyNav
+          items={items}
+          particleCount={15}
+          particleDistances={[90, 10]}
+          particleR={100}
+          initialActiveIndex={0}
+          animationTime={600}
+          timeVariance={300}
+          colors={[1, 2, 3, 1, 2, 3, 1, 4]}
+        />
+      </div>
+
       {/* Content Overlay */}
       <div className="relative z-10 flex flex-col items-center p-5 max-w-2xl w-full">
-         <Link to="/profile" className="font-extrabold text-blue-300 text-2xl ">Go to Profile</Link>
-        <h1 className="text-5xl font-extrabold text-blue-800 mt-8 mb-4 ">
-          Welcome to Chess Online!
-        </h1>
-        <br />
-        <p className="text-lg text-gray-700 mb-6">
-          Your User ID: {userIdRef.current || "Guest"}
-        </p>
-        
-        <button
-          onClick={handleLobbyRedirect}
-          className="mt-4 px-6 py-3 bg-blue-500 text-white rounded-lg  cursor-pointer transition duration-300 ease-in-out shadow-lg hover:bg-blue-700 hover:scale-105 active:bg-red-800 active:scale-100  font-semibold"
-        >
-          Lobby
-        </button>
-        <br />
         {TEST_JWT_TOKEN ? (
           <button
             onClick={handleLogout}
@@ -186,15 +186,25 @@ function HomePage() {
           >
             Logout
           </button>
-        ):(<button
+        ) : (
+          <button
             onClick={handleLoginRedirect}
             className="mt-4 px-6 py-3 bg-red-500 text-white rounded-lg  hover:bg-red-600 transition duration-300 ease-in-out text-lg font-semibold cursor-pointer  shadow-lg  hover:scale-105 active:bg-green-800 active:scale-100 "
           >
             Login
           </button>)}
-        
-        
-        
+        <button
+          onClick={handleLobbyRedirect}
+          className="mt-4 px-6 py-3 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition duration-300 ease-in-out text-lg font-semibold"
+        >
+          Lobby
+        </button>
+        <h1 className="text-5xl font-extrabold text-blue-800 mt-8 mb-4">
+          Welcome to Chess Online!
+        </h1>
+        <p className="text-lg text-gray-700 mb-6">
+          Your User ID: {userIdRef.current || "Guest"}
+        </p>
 
         {/* Conditional rendering based on matchmaking status */}
         {matchmakingStatus === "idle" && (
@@ -211,11 +221,15 @@ function HomePage() {
         )}
 
         {matchmakingStatus === "waiting" && (
-          <p className="italic text-gray-600 mt-4">Searching for opponent... Please wait.</p>
+          <p className="italic text-gray-600 mt-4">
+            Searching for opponent... Please wait.
+          </p>
         )}
 
         {matchmakingStatus === "in_game" && gameId && (
-          <p className="italic text-gray-600 mt-4">Match found! Redirecting to game...</p>
+          <p className="italic text-gray-600 mt-4">
+            Match found! Redirecting to game...
+          </p>
         )}
       </div>
     </div>
