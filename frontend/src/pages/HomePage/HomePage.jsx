@@ -6,6 +6,7 @@ import Particles from "../../assets/Particles"; // Assuming this path is correct
 import GooeyNav from "../../assets/GoevyNav";
 import BackgroundLetterAvatars from "../../assets/Avatar";
 const WEBSOCKET_URL = "http://localhost:8080/ws";
+import StarBorder from "../../assets/StarBorder";
 
 function HomePage() {
   const navigate = useNavigate();
@@ -206,24 +207,30 @@ function HomePage() {
               {localStorage.getItem("name")} !!
             </p>
             {matchmakingStatus === "idle" && (
-              <button
+
+              <StarBorder
+                as="button"
                 onClick={handlePlayGame}
-                className="px-8 py-4 text-2xl bg-green-600 text-white rounded-xl cursor-pointer transition duration-300 ease-in-out shadow-lg hover:bg-green-700 hover:scale-105 active:bg-green-800 active:scale-100 mt-8"
+                color="cyan"
+                speed="4s"
+                className="cursor-pointer"
               >
                 Play Game
-              </button>
+              </StarBorder>
             )}
           </>
         ) : (
           <>
-
             {matchmakingStatus === "idle" && (
-              <button
+               <StarBorder
+                as="button"
                 onClick={handlePlayGame}
-                className="px-8 py-4 text-2xl bg-green-600 text-white rounded-xl cursor-pointer transition duration-300 ease-in-out shadow-lg hover:bg-green-700 hover:scale-105 active:bg-green-800 active:scale-100 mt-8"
+                color="cyan"
+                className="cursor-pointer"
+                speed="5s"
               >
                 Play Game As Guest
-              </button>
+              </StarBorder>
             )}
           </>
         )}

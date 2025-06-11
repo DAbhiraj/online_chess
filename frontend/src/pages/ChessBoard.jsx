@@ -7,6 +7,7 @@ import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import axios from "axios";
 import moveSoundFile from "/chess_move.wav";
+import Particles from "../assets/Particles.jsx";
 
 const WEBSOCKET_URL = "http://localhost:8080/ws";
 const API_BASE_URL = "http://localhost:8080/";
@@ -25,27 +26,34 @@ function ChessboardComponent() {
   const [matchmakingStatus, setMatchmakingStatus] = useState(
     initialGameId ? "in_game" : "idle"
   );
-  const [loadingGameState, setLoadingGameState] = useState(false);
-  const [error, setError] = useState(null);
 
   const [whitePlayerId, setWhitePlayerId] = useState("");
   const [blackPlayerId, setBlackPlayerId] = useState("");
 
   const whitePlayerIdRef = useRef("");
   const blackPlayerIdRef = useRef("");
-
   const gameRef = useRef(game);
   const gameIdRef = useRef(gameId);
   const stompClientRef = useRef(stompClient);
   const isConnectedRef = useRef(isConnected);
   const gameOverSentRef = useRef(false);
 
+  const [whiteTime, setWhiteTime] = useState(10); // 10 min
+  const [blackTime, setBlackTime] = useState(10);
+
+  const [whiteStarted, setWhiteStarted] = useState(false);
+  const [blackStarted, setBlackStarted] = useState(false);
+
+  const whiteStartedRef = useRef(false);
+  const blackStartedRef = useRef(false);
+
+  const userId = localStorage.getItem("email");
+
   const playMoveSound = () => {
     moveSound.currentTime = 0;
     moveSound.play();
   };
 
-  // Keep gameRef in sync
   useEffect(() => {
     gameRef.current = game;
   }, [game]);
@@ -71,126 +79,142 @@ function ChessboardComponent() {
   }, [blackPlayerId]);
 
   useEffect(() => {
-    if (!initialGameId) {
-      console.warn("No gameId passed, redirecting to home...");
-      navigate("/");
-    }
+    whiteStartedRef.current = whiteStarted;
+  }, [whiteStarted]);
+
+  useEffect(() => {
+    blackStartedRef.current = blackStarted;
+  }, [blackStarted]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (gameRef.current.game_over() || gameOverSentRef.current) return;
+
+      if (gameRef.current.turn() === "w") {
+        setWhiteTime((prev) => {
+          if (prev <= 1) {
+            handleTimeout("w");
+            return 0;
+          }
+          return prev - 1;
+        });
+      } else {
+        setBlackTime((prev) => {
+          if (prev <= 1) {
+            handleTimeout("b");
+            return 0;
+          }
+          return prev - 1;
+        });
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [whiteTime, blackTime]);
+
+  const handleTimeout = (losingColor) => {
+    if (gameOverSentRef.current) return;
+    gameOverSentRef.current = true;
+
+    const loserId =
+      losingColor === "w" ? whitePlayerIdRef.current : blackPlayerIdRef.current;
+
+    const winnerId =
+      losingColor === "w" ? blackPlayerIdRef.current : whitePlayerIdRef.current;
+
+    stompClientRef.current?.publish({
+      destination: `/app/game.over/${gameIdRef.current}`,
+      body: JSON.stringify({ reason: "timeout", winnerId, loserId }),
+    });
+  };
+
+  useEffect(() => {
+    if (!initialGameId) navigate("/");
   }, [initialGameId, navigate]);
 
   useEffect(() => {
     (async () => {
       if (initialGameId) {
         try {
-          const response = await axios.get(`${API_BASE_URL}game/gameOver/${initialGameId}`);
-          const { player1Id, player2Id } = response.data;
-          setWhitePlayerId(player1Id);
-          setBlackPlayerId(player2Id);
-        } catch (err) {
-          console.error("Error fetching players:", err);
+          const res = await axios.get(
+            `${API_BASE_URL}game/gameOver/${initialGameId}`
+          );
+          setWhitePlayerId(res.data.player1Id);
+          setBlackPlayerId(res.data.player2Id);
+        } catch (e) {
+          console.error("Error fetching players:", e);
         }
       }
     })();
   }, [initialGameId]);
 
-  const fetchGameState = useCallback(async () => {
-    if (!gameIdRef.current) return;
-    setLoadingGameState(true);
-    try {
-      const response = await axios.get(`${API_BASE_URL}game/${gameIdRef.current}`);
-      if (response.data?.fen) {
-        const updatedGame = new Chess(response.data.fen);
-        setGame(updatedGame);
-      }
-    } catch (err) {
-      console.error("Error fetching game state:", err);
-      setError("Failed to load game state.");
-    } finally {
-      setLoadingGameState(false);
-    }
-  }, []);
-
   useEffect(() => {
     if (!gameId) return;
 
     const token = localStorage.getItem("authToken");
-    const websocketUrlWithToken = `${WEBSOCKET_URL}?token=${token}`;
-
+    const wsUrl = `${WEBSOCKET_URL}?token=${token}`;
     const client = new Client({
-      webSocketFactory: () => new SockJS(websocketUrlWithToken),
-      debug: (str) => console.log("STOMP Debug:", str),
+      webSocketFactory: () => new SockJS(wsUrl),
       reconnectDelay: 5000,
-      heartbeatIncoming: 4000,
-      heartbeatOutgoing: 4000,
     });
 
-    client.onConnect = (frame) => {
-      console.log("Connected:", frame);
+    client.onConnect = () => {
       setIsConnected(true);
       setStompClient(client);
 
-      client.subscribe(`/topic/game/${gameId}`, (message) => {
-        const newGameState = JSON.parse(message.body);
-        if (newGameState.fen) {
-          const updatedGame = new Chess(newGameState.fen);
-          setGame(updatedGame);
-        }
+      client.subscribe(`/topic/game/${gameId}`, (msg) => {
+        const data = JSON.parse(msg.body);
+        if (data.fen) setGame(new Chess(data.fen));
       });
 
-      client.subscribe(`/topic/game/${gameId}/gameover`, (message) => {
-        const data = JSON.parse(message.body);
+      client.subscribe(`/topic/game/${gameId}/gameover`, (msg) => {
+        const data = JSON.parse(msg.body);
         alert(`Game Over: ${data.reason}, Winner: ${data.winnerId}`);
       });
-
-      fetchGameState();
     };
 
-    client.onStompError = (frame) => {
-      console.error("STOMP Error:", frame);
-      navigate("/");
-    };
-
-    client.onWebSocketClose = () => {
-      console.log("WebSocket closed.");
-      setIsConnected(false);
-      setGameId(null);
-      setMatchmakingStatus("idle");
-      navigate("/");
-    };
+    client.onStompError = () => navigate("/");
+    client.onWebSocketClose = () => navigate("/");
 
     client.activate();
+    return () => client.deactivate();
+  }, [gameId, navigate]);
 
-    return () => {
-      if (client) {
-        client.deactivate();
-        console.log("WebSocket client disconnected.");
-      }
-    };
-  }, [gameId, navigate, fetchGameState]);
+  const formatTime = (sec) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
 
-  function getGameOverReasonAndWinner(game) {
-    const reason = game.in_checkmate()
+  const getGameOverReasonAndWinner = (g) => {
+    const reason = g.in_checkmate()
       ? "checkmate"
-      : game.in_stalemate()
+      : g.in_stalemate()
       ? "stalemate"
-      : game.in_draw()
+      : g.in_draw()
       ? "draw"
-      : game.isInsufficientMaterial()
+      : g.isInsufficientMaterial()
       ? "insufficient_material"
-      : game.isThreefoldRepetition()
+      : g.isThreefoldRepetition()
       ? "threefold_repetition"
       : "unknown";
 
-    let winnerId = null;
-    let loserId = null;
-
+    let winnerId = null,
+      loserId = null;
     if (reason === "checkmate") {
-      const winnerColor = game.turn() === "w" ? "b" : "w";
-      winnerId = winnerColor === "w" ? whitePlayerIdRef.current : blackPlayerIdRef.current;
-      loserId = winnerColor === "w" ? blackPlayerIdRef.current : whitePlayerIdRef.current;
+      const winnerColor = g.turn() === "w" ? "b" : "w";
+      winnerId =
+        winnerColor === "w"
+          ? whitePlayerIdRef.current
+          : blackPlayerIdRef.current;
+      loserId =
+        winnerColor === "w"
+          ? blackPlayerIdRef.current
+          : whitePlayerIdRef.current;
     }
 
     return { reason, winnerId, loserId };
-  }
+  };
 
   const sendMoveToBackend = useCallback((moveDetails) => {
     if (stompClientRef.current && isConnectedRef.current && gameIdRef.current) {
@@ -203,12 +227,16 @@ function ChessboardComponent() {
 
   const onDrop = useCallback(
     (sourceSquare, targetSquare) => {
-      if (!gameIdRef.current || matchmakingStatus !== "in_game") {
-        alert("Move rejected: Not in active game.");
-        return false;
-      }
-
       const gameCopy = new Chess(gameRef.current.fen());
+      const piece = gameCopy.get(sourceSquare);
+      const userId = localStorage.getItem("email");
+
+      if (!piece) return false;
+      const isWhite = userId === whitePlayerIdRef.current;
+      const isBlack = userId === blackPlayerIdRef.current;
+
+      if ((isWhite && piece.color !== "w") || (isBlack && piece.color !== "b"))
+        return false;
 
       const move = gameCopy.move({
         from: sourceSquare,
@@ -220,6 +248,12 @@ function ChessboardComponent() {
         setGame(gameCopy);
         playMoveSound();
 
+        // Start respective timer only after first move
+        if (move.color === "w" && !whiteStartedRef.current)
+          setWhiteStarted(true);
+        if (move.color === "b" && !blackStartedRef.current)
+          setBlackStarted(true);
+
         sendMoveToBackend({
           from: sourceSquare,
           to: targetSquare,
@@ -229,20 +263,21 @@ function ChessboardComponent() {
 
         if (gameCopy.game_over() && !gameOverSentRef.current) {
           gameOverSentRef.current = true;
-          const { reason, winnerId, loserId } = getGameOverReasonAndWinner(gameCopy);
+          const { reason, winnerId, loserId } =
+            getGameOverReasonAndWinner(gameCopy);
 
           stompClientRef.current?.publish({
             destination: `/app/game.over/${gameIdRef.current}`,
             body: JSON.stringify({ reason, winnerId, loserId }),
           });
-
-          console.log("Sent game over event.");
         }
+
         return true;
       }
+
       return false;
     },
-    [sendMoveToBackend, matchmakingStatus]
+    [sendMoveToBackend]
   );
 
   const handleEnd = () => {
@@ -253,57 +288,124 @@ function ChessboardComponent() {
       !gameOverSentRef.current
     ) {
       gameOverSentRef.current = true;
-      const resigningPlayerId = localStorage.getItem("userId");
+      const resigningId = localStorage.getItem("userId");
       const winnerId =
-        resigningPlayerId === whitePlayerIdRef.current
+        resigningId === whitePlayerIdRef.current
           ? blackPlayerIdRef.current
           : whitePlayerIdRef.current;
 
       stompClientRef.current.publish({
         destination: `/app/game.over/${gameIdRef.current}`,
-        body: JSON.stringify({
-          reason: "resignation",
-          winnerId,
-        }),
+        body: JSON.stringify({ reason: "resignation", winnerId }),
       });
-
-      console.log("Sent game over event due to resignation.");
     }
   };
 
   return (
-    <div className="chess-board-component">
-      <h2>Your Chess Game</h2>
-      <p>Game ID: {gameId || "N/A"}</p>
+    <div className="relative min-h-screen bg-black text-white flex justify-center items-center">
+      <div className="absolute inset-0 z-0">
+        <Particles
+          particleColors={["#ffffff", "#ffffff"]}
+          particleCount={200}
+          particleSpread={10}
+          speed={0.1}
+          particleBaseSize={100}
+          moveParticlesOnHover={true}
+          alphaParticles={false}
+        />
+      </div>
 
-      {!isConnected && (
-        <p className="status-message">
-          {gameId
-            ? "Connecting to game server..."
-            : "No game ID received. Redirecting..."}
-        </p>
-      )}
+      <div className="z-10 flex flex-row gap-6 p-4 items-center">
+        {/* Center Game Area */}
+        <div className="flex flex-col items-center">
+          {/* Top Player */}
+          <div className="w-[500px] flex justify-between mb-2">
+            <span className="text-left text-sm font-semibold">
+              {userId == whitePlayerIdRef.current
+                ? blackPlayerIdRef.current
+                : whitePlayerIdRef.current}
+            </span>
+            <span
+              className={`text-right px-3 py-1 rounded font-mono text-sm ${
+                userId === whitePlayerIdRef.current
+                  ? "bg-gray-900 text-white" // showing black's time
+                  : "bg-white text-black" // showing white's time
+              }`}
+            >
+              {formatTime(
+                userId == whitePlayerIdRef.current ? blackTime : whiteTime
+              )}
+            </span>
+          </div>
 
-      {loadingGameState && <p>Loading game state...</p>}
-      {error && <p className="error-message">{error}</p>}
-
-      {matchmakingStatus === "in_game" &&
-      gameId &&
-      isConnected &&
-      !loadingGameState ? (
-        <>
+          {/* Chessboard */}
           <Chessboard
             position={game.fen()}
             onPieceDrop={onDrop}
             boardWidth={500}
+            boardOrientation={
+              localStorage.getItem("email") === blackPlayerIdRef.current
+                ? "black"
+                : "white"
+            }
+            customBoardStyle={{
+              borderRadius: "0.5rem",
+              boxShadow: "0 0 10px white",
+            }}
           />
-          <p>Current Turn: {game.turn() === "w" ? "White" : "Black"}</p>
-        </>
-      ) : (
-        !loadingGameState && <p>Waiting for game to load or connection to establish...</p>
-      )}
 
-      <button onClick={handleEnd}>End Game</button>
+          {/* Bottom Player */}
+          <div className="w-[500px] flex justify-between mt-2">
+            <span className="text-left text-sm font-semibold">
+              {userId == whitePlayerIdRef.current
+                ? whitePlayerIdRef.current
+                : blackPlayerIdRef.current}
+            </span>
+            <span
+              className={`text-right px-3 py-1 rounded font-mono text-sm ${
+                userId === whitePlayerIdRef.current
+                  ? "bg-white text-black" // showing black's time
+                  : "bg-gray-900 text-white" // showing white's time
+              }`}
+            >
+              {formatTime(
+                userId == whitePlayerIdRef.current ? whiteTime : blackTime
+              )}
+            </span>
+          </div>
+
+          <p className="mt-4 text-white text-lg font-bold">
+            Turn: {game.turn() === "w" ? "White" : "Black"}
+          </p>
+          <button
+            className="mt-2 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded"
+            onClick={handleEnd}
+          >
+            Resign
+          </button>
+        </div>
+
+        {/* Move History */}
+        <div className="w-48 bg-gray-800 rounded-lg p-3 max-h-[520px] overflow-y-auto">
+          <h3 className="text-md font-semibold mb-2 text-white">
+            Move History
+          </h3>
+          <ol className="list-decimal list-inside text-sm text-white space-y-1">
+            {Array.from({
+              length: Math.ceil(game.history({ verbose: true }).length / 2),
+            }).map((_, i) => {
+              const history = game.history({ verbose: true });
+              const w = history[2 * i];
+              const b = history[2 * i + 1];
+              return (
+                <li key={i}>
+                  {i + 1}. {w?.san || ""} {b ? `... ${b.san}` : ""}
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      </div>
     </div>
   );
 }
