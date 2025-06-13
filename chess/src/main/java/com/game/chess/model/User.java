@@ -3,12 +3,14 @@ package com.game.chess.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.*;
 
 @Entity
 @Table(name = "allusers")
 @Data
+@NoArgsConstructor
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -17,24 +19,19 @@ public class User {
     private String email;
     @Column(nullable = false)
     private String name;
-    @Column(nullable = false)
-    private String password;
-
-    private boolean isVerified = false;
 
     private int rating = 800;
-    
-    @ElementCollection(fetch = FetchType.EAGER)
-    @Enumerated(EnumType.STRING)
-    private Set<Role> roles = new HashSet<>();
 
     @ManyToMany(mappedBy = "players")
     @com.fasterxml.jackson.annotation.JsonBackReference
     private List<Lobby> lobbies;
 
-    // @ManyToMany(mappedBy = "friends")
-    // @com.fasterxml.jackson.annotation.JsonBackReference
-    // private List<User> friends;
+    private int matchesPlayed;
+    private int matchesWon;  
+    private int matchesLost;
+    private int matchesDrawn;
+
+
 
    
 

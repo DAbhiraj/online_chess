@@ -8,6 +8,8 @@ import LobbyManager from './pages/LobbyPage.jsx';
 import LobbyDetails from './pages/LobbyPlayers.jsx';
 import Particles from './assets/Particles.jsx';
 import Profile from './pages/Profile.jsx';
+import MagicLinkRequest from './pages/MagicLinkRequest.jsx';
+import MagicLoginHandler from './pages/MagicLoginHandler.jsx';
 
 
 function App() {
@@ -23,7 +25,8 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/lobby/:lobbyId" element={<LobbyDetails />} />
         <Route path="/lobby" element={<LobbyManager />} />
-        <Route path="/particles" element={<Particles />} />
+        <Route path="/register1" element={<MagicLinkRequest />} />
+        <Route path="/magic-login" element={<MagicLoginHandler />} />
       </Routes>
     </Router>
   )

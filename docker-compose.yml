@@ -13,8 +13,12 @@ services:
       SPRING_DATA_REDIS_PORT: 6379
 
       JWT_SECRET_KEY: zY1jvblRtZmfpAvWJbHgOaf4lo0lZAtON7wQGZPZnBLTPuqqd+5rMJ7UY4jKYTiU1XP9l2i3zNUiOU4xAORRGg==
-      SPRING_MAIL_USERNAME: abhiraj.dustakar@gmail.com
-      SPRING_MAIL_PASSWORD: asdfasdfasf
+      SPRING_MAIL_USERNAME: 109000e252425f
+      SPRING_MAIL_PASSWORD: cd4998166cb916
+      SPRING_MAIL_HOST: sandbox.smtp.mailtrap.io
+      SPRING_MAIL_PORT: 587
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: true
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: true
     depends_on:
       - db
       - redis

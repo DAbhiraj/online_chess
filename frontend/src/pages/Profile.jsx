@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -6,24 +6,30 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import Particles from "../assets/Particles";
 import GooeyNav from "../assets/GoevyNav";
 
-const App = () => {
-  // Mock user data (replace with real data or props later)
-  const userData = {
-    userName: "Sai Surya Pranav",
-    email: "sai@gmail.com",
-    matchesPlayed: 42,
-    matchesWon: 25,
-    matchesLost: 17,
-    rapidRating: 1450,
-    classicalRating: 1500,
-    blitzRating: 1350,
-  };
+const API_URL = "http://localhost:8080/";
+
+const Profile = () => {
+
+  const userName = localStorage.getItem("name");
+  const email = localStorage.getItem("email");
+
+  const [userData, setUserData] = useState([]);
+
+  useEffect(() => {
+    async function fetchData() {
+      const response = await axios.get(`${API_URL}api/profile/${email}`);
+      setUserData(response.data);
+    }
+    fetchData();
+  }, []);
 
   const totalGames = userData.matchesPlayed;
   const winPercentage =
     totalGames > 0 ? (userData.matchesWon / totalGames) * 100 : 0;
   const lossPercentage =
     totalGames > 0 ? (userData.matchesLost / totalGames) * 100 : 0;
+  const drawPercentage =
+    totalGames > 0 ? (userData.matchesDrawn / totalGames) * 100 : 0;
 
   const pieChartData = [
     {
@@ -36,9 +42,14 @@ const App = () => {
       value: userData.matchesLost,
       percentage: lossPercentage,
     },
+    {
+      name: "Matches Drawn",
+      value: userData.matchesDrawn,
+      percentage: drawPercentage,
+    },
   ];
 
-    const items = [
+  const items = [
     { label: "Home", href: "/" },
     { label: "Lobby", href: "/lobby" },
     { label: "Profile", href: "/profile" },
@@ -81,20 +92,23 @@ const App = () => {
             {" "}
             {/* Flex container for side-by-side layout */}
             <div className=" bg-opacity-70 backdrop-blur-sm p-8 rounded-xl shadow-2xl w-full lg:w-1/2 ">
-              <ProfileRow label="User Name" value={userData.userName} />
-              <ProfileRow label="Email" value={userData.email} />
+              <ProfileRow label="User Name" value={userName} />
+              <ProfileRow label="Email" value={email} />
               <ProfileRow
                 label="Matches Played"
                 value={userData.matchesPlayed}
               />
               <ProfileRow label="Matches Won" value={userData.matchesWon} />
               <ProfileRow label="Matches Lost" value={userData.matchesLost} />
-              <ProfileRow label="Rapid Rating" value={userData.rapidRating} />
+              <ProfileRow label="Matches Drawn" value={userData.matchesDrawn} />
               <ProfileRow
                 label="Classical Rating"
-                value={userData.classicalRating}
+                value={userData.classicalRating || 0}
               />
-              <ProfileRow label="Blitz Rating" value={userData.blitzRating} />
+              <ProfileRow
+                label="Blitz Rating"
+                value={userData.rating || 0}
+              />
             </div>
             <div className="flex flex-col w-full lg:w-1/2 gap-8">
               <div className=" bg-opacity-70 backdrop-blur-sm p-8 rounded-xl shadow-2xl ">
@@ -181,4 +195,4 @@ const ProfileRow = ({ label, value }) => (
   </div>
 );
 
-export default App;
+export default Profile;

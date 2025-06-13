@@ -234,9 +234,15 @@ function ChessboardComponent() {
       if (!piece) return false;
       const isWhite = userId === whitePlayerIdRef.current;
       const isBlack = userId === blackPlayerIdRef.current;
+      console.log("isWhite "+isWhite);
+      console.log("isBlack "+isBlack);
 
       if ((isWhite && piece.color !== "w") || (isBlack && piece.color !== "b"))
         return false;
+
+      if(!isWhite && !isBlack){
+        return false;
+      }
 
       const move = gameCopy.move({
         from: sourceSquare,

@@ -84,6 +84,7 @@ public class GameController {
             String fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
             gameService.sendMatchmakingResponse(userId, "success", gameId, opponentId, fen, userColor);
             gameService.sendMatchmakingResponse(opponentId, "success", gameId, userId, fen, "black");
+            gameService.handleUser(userId,opponentId,true,"");
         }
     }
 
@@ -118,6 +119,7 @@ public class GameController {
 
     @MessageMapping("/game.over/{gameId}")
     public void handleGameOver(@DestinationVariable String gameId,GameOverReq gameOverdto){
+        gameService.handleUser(gameOverdto.getWinnerId(),gameOverdto.getLoserId(),false,gameOverdto.getReason());
         gameService.handleGameOver(gameId,gameOverdto.getReason(),gameOverdto.getWinnerId(),gameOverdto.getLoserId());
     }
 
@@ -144,6 +146,7 @@ public class GameController {
 
         gameService.sendMatchmakingResponse(userId, "success", gameId, opponentId, fen, "white");
         gameService.sendMatchmakingResponse(opponentId, "success", gameId, userId, fen, "black");
+        gameService.handleUser(userId,opponentId,true,"");
     }
 
     @MessageMapping("/game.lobby.match.specific/{lobbyId}")
@@ -204,7 +207,9 @@ public class GameController {
 
             // Send success response to both players
             gameService.sendMatchmakingResponse(initiatorId, "success", gameId, userId, fen, "white");
-            gameService.sendMatchmakingResponse(userId, "success", gameId, initiatorId, fen, "black"); 
+            gameService.sendMatchmakingResponse(userId, "success", gameId, initiatorId, fen, "black");
+            logger.debug("going to handleUser");
+            gameService.handleUser(initiatorId,userId,true,""); 
         } else {
         // Notify initiator of rejection
             messagingTemplate.convertAndSendToUser(request.getInitiatorEmail(), "/queue/rejected", "user rejected the request");

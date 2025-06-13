@@ -1,8 +1,12 @@
 package com.game.chess.controller;
 
+import java.util.Collections;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -10,112 +14,66 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.game.chess.dto.AuthResponse;
-import com.game.chess.dto.EmailReq;
 import com.game.chess.dto.LoginRequest;
-import com.game.chess.dto.RegisterRequest;
-import com.game.chess.dto.VerificationRequest;
 import com.game.chess.model.User;
-import com.game.chess.service.AuthService;
-import com.game.chess.service.UserService;
+import com.game.chess.repo.UserRepository;
+import com.game.chess.security.JwtTokenProvider;
+//import com.game.chess.service.AuthService;
+import com.game.chess.service.EmailService;
+
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/auth")
 @CrossOrigin(origins ="http://localhost:5173")
+@Slf4j
 public class AuthController {
 
+
+
     @Autowired
-    private UserService userService;
+    private EmailService emailService;
 
-    private final AuthService authService;
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
 
-    public AuthController(AuthService authService) {
-        this.authService = authService;
+    @Autowired
+    private UserRepository userRepository;
+
+    // private final AuthService authService;
+
+    // public AuthController(AuthService authService) {
+    //     this.authService = authService;
+    // }
+
+
+
+    @PostMapping("/send-magic-link")
+    public ResponseEntity<?> sendMagicLink(@RequestBody LoginRequest loginReq) {
+        emailService.sendMagicLink(loginReq.getEmail(),loginReq.getName());
+        return ResponseEntity.ok("Magic link sent.");
     }
 
-    @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
-        User user = userService.registerUser(request.getEmail(), request.getPassword(),request.getName(),request.getRoles());
-
-        if(user != null)
-        return ResponseEntity.ok("Please check your email for OTP.");
-
-
-        return ResponseEntity.ofNullable("error pls check your email and password credentials");
-    }
-
-
-    @PostMapping("/verify")
-    public ResponseEntity<?> verifyEmail(@RequestBody VerificationRequest request) {
-        boolean verified = userService.verifyEmail(request.getEmail(), request.getOtp());
-
-        if (verified) {
-
-            AuthResponse authResponse = authService.registerVerified(request);
-
-
-            return ResponseEntity.ok(authResponse);
+    @GetMapping("/verify")
+    public ResponseEntity<?> verifyToken(@RequestParam String token) {
+        LoginRequest req = emailService.verifyToken(token);
+        log.debug("email in controller "+ req.getEmail()+" "+req.getName());
+        if (req.getEmail() == null && req.getName() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid or expired link.");
         }
-
-        return ResponseEntity.badRequest().body("Invalid OTP");
+        User user = userRepository.findByEmail(req.getEmail()).orElseGet(() -> {
+        // If not found, create new user
+        User newUser = new User();
+        newUser.setEmail(req.getEmail());
+        newUser.setName(req.getName());
+        log.debug("going to save to userRepo");
+        return userRepository.save(newUser);
+    });
+        String accessToken = jwtTokenProvider.generateRefreshToken(req.getEmail());
+        AuthResponse authResponse = new AuthResponse(accessToken,user.getId(),user.getEmail(),user.getName());
+        return ResponseEntity.ok(authResponse);
     }
-
-
-    @PostMapping("/resend-otp")
-    public ResponseEntity<?> resendOtp(@RequestParam String email) {
-        userService.resendOtp(email);
-        return ResponseEntity.ok("OTP resent successfully");
-    }
-
-    @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) {
-        System.out.println("logging in");
-        return ResponseEntity.ok(authService.login(request));
-    }
-
-    @PostMapping("/refresh")
-    public ResponseEntity<AuthResponse> refresh(@RequestBody String refreshToken) {
-        return ResponseEntity.ok(authService.refreshToken(refreshToken));
-    }
-
-    @PostMapping("/logout")
-    public ResponseEntity<Void> logout() {
-        authService.logout();
-        return ResponseEntity.ok().build();
-    }
-
-    @PostMapping("/forgotPassword")
-    public ResponseEntity<?> forgotPassword(@RequestBody EmailReq emailReq){
-            userService.sendForgotPasswordOtp(emailReq.getEmail());
-            return ResponseEntity.ok("sent forgot password otp to email");
-    }
-
-    @PostMapping("/forgotPassword/verify")
-    public ResponseEntity<?> verifyFpOtp(@RequestBody VerificationRequest request) {
-        boolean verified = userService.verifyFpOtp(request.getEmail(), request.getOtp());
-
-        if (verified) {
-
-            return ResponseEntity.ok("redirecting to change password");
-        }
-
-        return ResponseEntity.badRequest().body("Invalid OTP");
-    }
-
-    @PostMapping("/forgotPassword/changePassword")
-    public ResponseEntity<?> verifyChangePassword(@RequestParam String email,@RequestParam String newP, @RequestParam String confirmP){
-            boolean updated = userService.updatePassword(email,newP,confirmP);
-
-            if(updated){
-                return ResponseEntity.ok("updated password pls login again");
-            }
-
-        return ResponseEntity.ok("new Password and confirm password doesn't match");
-
-
-    }
-
     
     
 }
 
-// controller -> service -> repo 

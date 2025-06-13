@@ -27,6 +27,7 @@ public class Game implements Serializable {
     private long lastMoveTime; // Timestamp of the last move, useful for clocks
     private int fullMoveNumber;
 
+
     public Game(String id, String player1Id, String player2Id) {
         this.id = id;
         this.fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"; // Initial FEN

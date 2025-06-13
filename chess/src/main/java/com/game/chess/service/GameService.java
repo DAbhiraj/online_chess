@@ -57,6 +57,9 @@ public class GameService {
     private UserRepository userRepository;
 
     @Autowired
+    private UserService userService;
+
+    @Autowired
     private SimpMessageSendingOperations messagingTemplate;
 
     public String createNewGame(String player1Id, String player2Id) {
@@ -291,8 +294,10 @@ public class GameService {
         if(!optUser.isPresent()){
             throw new IllegalArgumentException("user not found with "+userId);
         }
-        User winner = optUser.get();
-        winner.setRating(newRating);
+        User user = optUser.get();
+        user.setRating(newRating);
+        System.out.println(user.getEmail()+" "+user.getRating());
+        userRepository.save(user);
     }
 
     public void updateRatings(String winnerId, String loserId) {
@@ -306,8 +311,8 @@ public class GameService {
         int newWinnerRating = (int) Math.round(winnerRating + k * (1 - expectedWin));
         int newLoserRating = (int) Math.round(loserRating + k * (0 - (1 - expectedWin)));
 
-        changeRating(winnerId,winnerRating);
-        changeRating(loserId,loserRating);
+        changeRating(winnerId,newWinnerRating);
+        changeRating(loserId,newLoserRating);
 
         
 
@@ -406,6 +411,38 @@ public class GameService {
         // Return a DTO for the frontend, including the fullMoveNumber
         return new GameStateDTO(game.getFen(), game.getTurn(), game.getStatus(), game.getWinnerId(), game.getFullMoveNumber());
     }
+
+    public void handleUser(String winnerId,String loserId,boolean matchStatus,String reason){
+        User user = userService.getPlayer(winnerId);
+        User opponent = userService.getPlayer(loserId);
+        logger.info(user.getEmail()+" "+opponent.getEmail()+" "+matchStatus);
+        //If matchstatus is true means match has been made, increase matches played by plyer by 1
+        if(matchStatus){
+            user.setMatchesPlayed(user.getMatchesPlayed()+1);
+            opponent.setMatchesPlayed(opponent.getMatchesPlayed()+1);
+            userRepository.save(user);
+            userRepository.save(opponent);
+        }
+        else{ //if game is over
+            //if it's drawn then increase matches drawn to both user by 1
+            if(reason=="draw"){
+                user.setMatchesDrawn(user.getMatchesDrawn()+1);
+                opponent.setMatchesDrawn(opponent.getMatchesDrawn()+1);
+                userRepository.save(user);
+                userRepository.save(opponent);
+            }
+            else{ //winner by 1 and loser by 1
+                user.setMatchesWon(user.getMatchesWon()+1);
+                System.out.println("user "+user.getEmail()+" "+user.getMatchesPlayed()+" "+user.getMatchesWon());
+                userRepository.save(user);
+                opponent.setMatchesLost(user.getMatchesLost()+1);
+                System.out.println("opponent "+opponent.getEmail()+" "+opponent.getMatchesPlayed()+" "+opponent.getMatchesWon());
+                userRepository.save(opponent);
+            }
+        }
+    }
+
+    
 
 
 

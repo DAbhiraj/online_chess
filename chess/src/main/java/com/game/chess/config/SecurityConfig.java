@@ -43,6 +43,7 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers("/api/auth/**").permitAll()
+                    .requestMatchers("/api/profile/**").permitAll()
                     .requestMatchers("/api/lobby/**").permitAll()
                     .requestMatchers("/game/**").permitAll()  // Allow all /game endpoints
                     .requestMatchers("/ws/**").permitAll()   // Allow WebSocket
