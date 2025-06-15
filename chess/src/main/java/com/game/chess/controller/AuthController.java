@@ -25,7 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins ="http://localhost:5173")
+@CrossOrigin(origins = "${frontend.url}")
 @Slf4j
 public class AuthController {
 
