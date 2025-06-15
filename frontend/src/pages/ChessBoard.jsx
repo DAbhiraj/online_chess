@@ -23,9 +23,7 @@ function ChessboardComponent() {
   const [stompClient, setStompClient] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [gameId, setGameId] = useState(initialGameId);
-  const [matchmakingStatus, setMatchmakingStatus] = useState(
-    initialGameId ? "in_game" : "idle"
-  );
+  const [matchmakingStatus] = useState(initialGameId ? "in_game" : "idle");
 
   const [whitePlayerId, setWhitePlayerId] = useState("");
   const [blackPlayerId, setBlackPlayerId] = useState("");
@@ -38,8 +36,8 @@ function ChessboardComponent() {
   const isConnectedRef = useRef(isConnected);
   const gameOverSentRef = useRef(false);
 
-  const [whiteTime, setWhiteTime] = useState(10); // 10 min
-  const [blackTime, setBlackTime] = useState(10);
+  const [whiteTime, setWhiteTime] = useState(600);
+  const [blackTime, setBlackTime] = useState(600);
 
   const [whiteStarted, setWhiteStarted] = useState(false);
   const [blackStarted, setBlackStarted] = useState(false);
@@ -110,7 +108,7 @@ function ChessboardComponent() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [whiteTime, blackTime]);
+  }, []);
 
   const handleTimeout = (losingColor) => {
     if (gameOverSentRef.current) return;
@@ -118,7 +116,6 @@ function ChessboardComponent() {
 
     const loserId =
       losingColor === "w" ? whitePlayerIdRef.current : blackPlayerIdRef.current;
-
     const winnerId =
       losingColor === "w" ? blackPlayerIdRef.current : whitePlayerIdRef.current;
 
@@ -234,15 +231,11 @@ function ChessboardComponent() {
       if (!piece) return false;
       const isWhite = userId === whitePlayerIdRef.current;
       const isBlack = userId === blackPlayerIdRef.current;
-      console.log("isWhite "+isWhite);
-      console.log("isBlack "+isBlack);
 
       if ((isWhite && piece.color !== "w") || (isBlack && piece.color !== "b"))
         return false;
 
-      if(!isWhite && !isBlack){
-        return false;
-      }
+      if (!isWhite && !isBlack) return false;
 
       const move = gameCopy.move({
         from: sourceSquare,
@@ -254,7 +247,6 @@ function ChessboardComponent() {
         setGame(gameCopy);
         playMoveSound();
 
-        // Start respective timer only after first move
         if (move.color === "w" && !whiteStartedRef.current)
           setWhiteStarted(true);
         if (move.color === "b" && !blackStartedRef.current)
@@ -294,7 +286,7 @@ function ChessboardComponent() {
       !gameOverSentRef.current
     ) {
       gameOverSentRef.current = true;
-      const resigningId = localStorage.getItem("userId");
+      const resigningId = localStorage.getItem("email");
       const winnerId =
         resigningId === whitePlayerIdRef.current
           ? blackPlayerIdRef.current
@@ -308,7 +300,7 @@ function ChessboardComponent() {
   };
 
   return (
-    <div className="relative min-h-screen bg-black text-white flex justify-center items-center">
+    <div className="relative min-h-screen bg-black text-white flex justify-center items-center overflow-x-hidden">
       <div className="absolute inset-0 z-0">
         <Particles
           particleColors={["#ffffff", "#ffffff"]}
@@ -322,60 +314,54 @@ function ChessboardComponent() {
       </div>
 
       <div className="z-10 flex flex-row gap-6 p-4 items-center">
-        {/* Center Game Area */}
         <div className="flex flex-col items-center">
-          {/* Top Player */}
           <div className="w-[500px] flex justify-between mb-2">
             <span className="text-left text-sm font-semibold">
-              {userId == whitePlayerIdRef.current
+              {userId === whitePlayerIdRef.current
                 ? blackPlayerIdRef.current
                 : whitePlayerIdRef.current}
             </span>
             <span
               className={`text-right px-3 py-1 rounded font-mono text-sm ${
                 userId === whitePlayerIdRef.current
-                  ? "bg-gray-900 text-white" // showing black's time
-                  : "bg-white text-black" // showing white's time
+                  ? "bg-gray-900 text-white"
+                  : "bg-white text-black"
               }`}
             >
               {formatTime(
-                userId == whitePlayerIdRef.current ? blackTime : whiteTime
+                userId === whitePlayerIdRef.current ? blackTime : whiteTime
               )}
             </span>
           </div>
 
-          {/* Chessboard */}
           <Chessboard
             position={game.fen()}
             onPieceDrop={onDrop}
             boardWidth={500}
             boardOrientation={
-              localStorage.getItem("email") === blackPlayerIdRef.current
-                ? "black"
-                : "white"
+              userId === blackPlayerIdRef.current ? "black" : "white"
             }
             customBoardStyle={{
               borderRadius: "0.5rem",
-              boxShadow: "0 0 10px white",
+              boxShadow: "none",
             }}
           />
 
-          {/* Bottom Player */}
           <div className="w-[500px] flex justify-between mt-2">
             <span className="text-left text-sm font-semibold">
-              {userId == whitePlayerIdRef.current
+              {userId === whitePlayerIdRef.current
                 ? whitePlayerIdRef.current
                 : blackPlayerIdRef.current}
             </span>
             <span
               className={`text-right px-3 py-1 rounded font-mono text-sm ${
                 userId === whitePlayerIdRef.current
-                  ? "bg-white text-black" // showing black's time
-                  : "bg-gray-900 text-white" // showing white's time
+                  ? "bg-white text-black"
+                  : "bg-gray-900 text-white"
               }`}
             >
               {formatTime(
-                userId == whitePlayerIdRef.current ? whiteTime : blackTime
+                userId === whitePlayerIdRef.current ? whiteTime : blackTime
               )}
             </span>
           </div>
@@ -403,9 +389,13 @@ function ChessboardComponent() {
               const history = game.history({ verbose: true });
               const w = history[2 * i];
               const b = history[2 * i + 1];
+
+              const formatMove = (move) =>
+                move ? `${move.from} → ${move.to} (${move.san})` : "";
+
               return (
                 <li key={i}>
-                  {i + 1}. {w?.san || ""} {b ? `... ${b.san}` : ""}
+                  {i + 1}. {formatMove(w)} {b ? `| ${formatMove(b)}` : ""}
                 </li>
               );
             })}

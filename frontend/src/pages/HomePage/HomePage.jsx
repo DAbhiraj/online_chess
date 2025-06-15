@@ -4,7 +4,7 @@ import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import Particles from "../../assets/Particles"; // Assuming this path is correct
 import GooeyNav from "../../assets/GoevyNav";
-import BackgroundLetterAvatars from "../../assets/Avatar";
+import BackgroundLetterAvatars from "../../assets/Avatar"; // This might not be used anymore if avatars are linked to traditional login
 const WEBSOCKET_URL = "http://localhost:8080/ws";
 import StarBorder from "../../assets/StarBorder";
 
@@ -131,8 +131,9 @@ function HomePage() {
     }
   }, [stompClient, matchmakingStatus]);
 
+  // redirect to MagicLinkRequest
   const handleLoginRedirect = () => {
-    navigate("/login");
+    navigate("/magic-link-request");
   };
 
   const handleLobbyRedirect = () => {
@@ -165,7 +166,7 @@ function HomePage() {
         />
       </div>
 
-      <div className="absolute items-center  top-5  z-20">
+      <div className="absolute items-center top-5 z-20">
         <GooeyNav
           items={items}
           particleCount={15}
@@ -179,7 +180,7 @@ function HomePage() {
       </div>
 
       {/* Content Overlay */}
-      <div className="absolute items-center  top-2 right-2 z-20">
+      <div className="absolute items-center top-2 right-2 z-20">
         {TEST_JWT_TOKEN ? (
           <button
             onClick={handleLogout}
@@ -190,7 +191,7 @@ function HomePage() {
         ) : (
           <button
             onClick={handleLoginRedirect}
-            className="mt-2 px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition duration-300 ease-in-out"
+            className="mt-2 px-4 py-2 cursor-pointer bg-zinc-800 text-white rounded-md hover:bg-blue-600 transition duration-300 ease-in-out"
           >
             Login
           </button>
@@ -207,7 +208,6 @@ function HomePage() {
               {localStorage.getItem("name")} !!
             </p>
             {matchmakingStatus === "idle" && (
-
               <StarBorder
                 as="button"
                 onClick={handlePlayGame}
@@ -222,7 +222,7 @@ function HomePage() {
         ) : (
           <>
             {matchmakingStatus === "idle" && (
-               <StarBorder
+              <StarBorder
                 as="button"
                 onClick={handlePlayGame}
                 color="cyan"
