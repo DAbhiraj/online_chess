@@ -29,8 +29,8 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @Value("${frontend.url}")
-    private String frontendUrl;
+    // @Value("${frontend.url}")
+    // private String frontendUrl;
 
     public SecurityConfig(CustomUserDetailsService userDetailsService, JwtTokenProvider tokenProvider) {
         this.jwtAuthenticationFilter = new JwtAuthenticationFilter(tokenProvider, userDetailsService);
@@ -76,7 +76,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList(frontendUrl)); // Update with your React app 
+        configuration.setAllowedOrigins(Arrays.asList("*")); 
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
