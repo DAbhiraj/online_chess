@@ -1,6 +1,4 @@
-// components/MatchmakingRequestModal.jsx
 
-import React from "react";
 import { Modal, Box, Typography, Button } from "@mui/material";
 
 const style = {

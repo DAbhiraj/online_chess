@@ -6,7 +6,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import Particles from "../assets/Particles";
 import GooeyNav from "../assets/GoevyNav";
 
-const API_URL = "http://localhost:8080/";
+const API_URL = import.meta.env.VITE_BACKEND_URL;
 
 const Profile = () => {
 
@@ -49,28 +49,12 @@ const Profile = () => {
     },
   ];
 
-  const items = [
-    { label: "Home", href: "/" },
-    { label: "Lobby", href: "/lobby" },
-    { label: "Profile", href: "/profile" },
-  ];
+
 
   const COLORS = ["#388E3C", "#D32F2F"];
 
   return (
     <div className="relative min-h-screen flex flex-col justify-center items-center bg-black font-sans text-black-800 text-center">
-      <div className="absolute items-center  top-5 z-20">
-        <GooeyNav
-          items={items}
-          particleCount={15}
-          particleDistances={[90, 10]}
-          particleR={100}
-          initialActiveIndex={0}
-          animationTime={600}
-          timeVariance={300}
-          colors={[1, 2, 3, 1, 2, 3, 1, 4]}
-        />
-      </div>
       <div className="relative  flex flex-col justify-center items-center bg-black font-sans text-black-800 text-center">
         <div className="absolute inset-0 z-0">
           <Particles

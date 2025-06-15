@@ -1,23 +1,22 @@
-import { useState } from 'react'
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import ChessboardComponent from './pages/ChessBoard';
-import HomePage from './pages/HomePage/HomePage';
-// Removed Login and Register imports
-import LobbyManager from './pages/LobbyPage.jsx';
-import LobbyDetails from './pages/LobbyPlayers.jsx';
-import Particles from './assets/Particles.jsx'; // Make sure this is still used if you want the particles on other pages
-import Profile from './pages/Profile.jsx';
-import MagicLinkRequest from './pages/MagicLinkRequest.jsx'; // Keep this one
-import MagicLoginHandler from './pages/MagicLoginHandler.jsx'; // Keep this one
+
+import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
+import ChessboardComponent from "./pages/ChessBoard";
+import HomePage from "./pages/HomePage/HomePage";
+import LobbyManager from "./pages/LobbyPage.jsx";
+import LobbyDetails from "./pages/LobbyPlayers.jsx";
+import Profile from "./pages/Profile.jsx";
+import MagicLinkRequest from "./pages/MagicLinkRequest.jsx"; 
+import MagicLoginHandler from "./pages/MagicLoginHandler.jsx"; 
+import Navbar from "./pages/component/Navbar.component.jsx";
 
 
 function App() {
-  const [count, setCount] = useState(0)
-
+  
   return (
     <Router>
+      <Navbar/>
       <Routes>
-        <Route path="/profile" element={<Profile/>}/>
+        <Route path="/profile" element={<Profile />} />
         <Route path="/chess/:gameId" element={<ChessboardComponent />} />
         <Route path="/" element={<HomePage />} />
         <Route path="/lobby/:lobbyId" element={<LobbyDetails />} />
@@ -26,7 +25,7 @@ function App() {
         <Route path="/magic-login" element={<MagicLoginHandler />} />
       </Routes>
     </Router>
-  )
+  );
 }
 
-export default App
+export default App;

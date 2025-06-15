@@ -10,12 +10,13 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
+  const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}api/auth/login`;
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       setLoading(true);
       setErrorMsg("");
-      const response = await axios.post("http://localhost:8080/api/auth/login", credentials);
+      const response = await axios.post(API_BASE_URL, credentials);
 
       const token = response.data.accessToken;
       const roles = response.data.roles;

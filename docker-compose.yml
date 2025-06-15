@@ -4,21 +4,8 @@ services:
       context: ./chess
     ports:
       - "8080:8080"
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/chess_db
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
-
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PORT: 6379
-
-      JWT_SECRET_KEY: zY1jvblRtZmfpAvWJbHgOaf4lo0lZAtON7wQGZPZnBLTPuqqd+5rMJ7UY4jKYTiU1XP9l2i3zNUiOU4xAORRGg==
-      SPRING_MAIL_USERNAME: 5ed4bf762b8afe
-      SPRING_MAIL_PASSWORD: a3a9a66533138f
-      SPRING_MAIL_HOST: sandbox.smtp.mailtrap.io
-      SPRING_MAIL_PORT: 2525
-      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: true
-      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: true
+    env_file:
+      - ./chess/.env
     depends_on:
       - db
       - redis

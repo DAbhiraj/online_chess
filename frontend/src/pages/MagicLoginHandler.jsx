@@ -3,13 +3,13 @@ import { useNavigate } from "react-router-dom";
 
 function MagicLoginHandler() {
   const navigate = useNavigate();
-
+  const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}api/auth`;
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get("token");
 
     if (token) {
-      fetch(`http://localhost:8080/api/auth/verify?token=${token}`)
+      fetch(`${API_BASE_URL}/verify?token=${token}`)
         .then(res => res.json())
         .then(data => {
           if (data.accessToken) {

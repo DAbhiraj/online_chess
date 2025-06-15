@@ -14,8 +14,8 @@ const LobbyDetails = () => {
   const [stompClient, setStompClient] = useState(null);
   const [incomingRequest, setIncomingRequest] = useState(null);
 
-  const WEBSOCKET_URL = `http://localhost:8080/ws`;
-  const API_BASE = "http://localhost:8080/api/lobby";
+  const WEBSOCKET_URL = import.meta.env.VITE_WEBSOCKET_URL;
+  const API_BASE = `${import.meta.env.VITE_BACKEND_URL}api/lobby`;
   const token = localStorage.getItem("authToken");
   const websocketUrlWithToken = `${WEBSOCKET_URL}?token=${token}`;
 

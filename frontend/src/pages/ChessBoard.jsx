@@ -9,8 +9,8 @@ import axios from "axios";
 import moveSoundFile from "/chess_move.wav";
 import Particles from "../assets/Particles.jsx";
 
-const WEBSOCKET_URL = "http://localhost:8080/ws";
-const API_BASE_URL = "http://localhost:8080/";
+const WEBSOCKET_URL = import.meta.env.VITE_WEBSOCKET_URL;
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL;
 const moveSound = new Audio(moveSoundFile);
 
 function ChessboardComponent() {

@@ -3,7 +3,7 @@ import axios from "axios";
 import { Link } from "react-router-dom";
 import Particles from "../assets/Particles";
 
-const API_BASE = "http://localhost:8080/api/lobby";
+const API_BASE = `${import.meta.env.VITE_BACKEND_URL}api/lobby`;
 
 function LobbyManager() {
   const [lobbies, setLobbies] = useState([]);

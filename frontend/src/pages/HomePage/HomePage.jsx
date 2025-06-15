@@ -1,11 +1,10 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import Particles from "../../assets/Particles"; // Assuming this path is correct
-import GooeyNav from "../../assets/GoevyNav";
-import BackgroundLetterAvatars from "../../assets/Avatar";
-const WEBSOCKET_URL = "http://localhost:8080/ws";
+
+const WEBSOCKET_URL = import.meta.env.VITE_WEBSOCKET_URL;
 import StarBorder from "../../assets/StarBorder";
 
 function HomePage() {
@@ -133,23 +132,8 @@ function HomePage() {
     }
   }, [stompClient, matchmakingStatus]);
 
-  const handleLoginRedirect = () => {
-    navigate("/login");
-  };
 
-  const handleLobbyRedirect = () => {
-    navigate("/lobby");
-  };
 
-  const handleLogout = () => {
-    localStorage.clear();
-    window.location.reload();
-  };
-  const items = [
-    { label: "Home", href: "/" },
-    { label: "Lobby", href: "/lobby" },
-    { label: "Profile", href: "/profile" },
-  ];
 
   return (
     <div className="relative min-h-screen flex flex-col justify-center items-center bg-black font-sans text-black-800 text-center">
@@ -167,37 +151,7 @@ function HomePage() {
         />
       </div>
 
-      <div className="absolute items-center  top-5  z-20">
-        <GooeyNav
-          items={items}
-          particleCount={15}
-          particleDistances={[90, 10]}
-          particleR={100}
-          initialActiveIndex={0}
-          animationTime={600}
-          timeVariance={300}
-          colors={[1, 2, 3, 1, 2, 3, 1, 4]}
-        />
-      </div>
-
-      {/* Content Overlay */}
-      <div className="absolute items-center  top-2 right-2 z-20">
-        {TEST_JWT_TOKEN ? (
-          <button
-            onClick={handleLogout}
-            className="mt-2 px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition duration-300 ease-in-out"
-          >
-            Logout
-          </button>
-        ) : (
-          <button
-            onClick={handleLoginRedirect}
-            className="mt-2 px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition duration-300 ease-in-out"
-          >
-            Login
-          </button>
-        )}
-      </div>
+      
       <div className="relative z-10 top-0 right-0 flex flex-col items-center p-5 max-w-2xl w-full">
         <h1 className="text-5xl font-extrabold text-blue-200 mt-8 mb-4">
           Welcome to Chess Online

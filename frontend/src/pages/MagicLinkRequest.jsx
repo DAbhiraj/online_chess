@@ -12,10 +12,10 @@ function MagicLinkRequest() {
     message: "",
     severity: "success",
   });
-
+const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}api/auth`;
   const sendLink = async () => {
     try {
-      await axios.post("http://localhost:8080/api/auth/send-magic-link", {
+      await axios.post(`${API_BASE_URL}/send-magic-link`, {
         email: email,
         name: name, // assuming you have a `name` state variable
       });

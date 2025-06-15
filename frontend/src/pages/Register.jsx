@@ -13,6 +13,8 @@ const Register = () => {
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
+  const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}api/auth`;
+
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -21,7 +23,7 @@ const Register = () => {
     setSuccessMsg("");
     setLoading(true);
     try {
-      const response = await axios.post("http://localhost:8080/api/auth/register", userData);
+      const response = await axios.post(`${API_BASE_URL}/register`, userData);
       setSuccessMsg("Registered successfully! Redirecting to login...");
       setTimeout(() => navigate("/login"), 1500);
     } catch (error) {
