@@ -23,7 +23,20 @@ function ChessboardComponent() {
   const [stompClient, setStompClient] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [gameId, setGameId] = useState(initialGameId);
-  const [matchmakingStatus] = useState(initialGameId ? "in_game" : "idle");
+  const [isGuest,setIsGuest] = useState(false);
+  const isGuestRef = useRef(false);
+  const [matchmakingStatus, setMatchmakingStatus] = useState(
+    initialGameId ? "in_game" : "idle"
+  );
+
+  useEffect(() => {
+  console.log(localStorage.getItem("authToken")==null);
+  if (localStorage.getItem("authToken") == null) {
+    setIsGuest(true);
+  }
+}, []);
+
+
 
   const [whitePlayerId, setWhitePlayerId] = useState("");
   const [blackPlayerId, setBlackPlayerId] = useState("");
@@ -36,8 +49,9 @@ function ChessboardComponent() {
   const isConnectedRef = useRef(isConnected);
   const gameOverSentRef = useRef(false);
 
-  const [whiteTime, setWhiteTime] = useState(600);
+  const [whiteTime, setWhiteTime] = useState(600); // 10 min
   const [blackTime, setBlackTime] = useState(600);
+
 
   const [whiteStarted, setWhiteStarted] = useState(false);
   const [blackStarted, setBlackStarted] = useState(false);
@@ -55,6 +69,11 @@ function ChessboardComponent() {
   useEffect(() => {
     gameRef.current = game;
   }, [game]);
+
+  useEffect(()=>{
+    isGuestRef.current = isGuest;
+    console.log("isGuestRef.current "+isGuest);
+  },[isGuest])
 
   useEffect(() => {
     gameIdRef.current = gameId;
@@ -108,7 +127,7 @@ function ChessboardComponent() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [whiteTime, blackTime]);
 
   const handleTimeout = (losingColor) => {
     if (gameOverSentRef.current) return;
@@ -116,12 +135,14 @@ function ChessboardComponent() {
 
     const loserId =
       losingColor === "w" ? whitePlayerIdRef.current : blackPlayerIdRef.current;
+
     const winnerId =
       losingColor === "w" ? blackPlayerIdRef.current : whitePlayerIdRef.current;
 
+    console.log("isGuest "+isGuestRef.current);
     stompClientRef.current?.publish({
       destination: `/app/game.over/${gameIdRef.current}`,
-      body: JSON.stringify({ reason: "timeout", winnerId, loserId }),
+      body: JSON.stringify({ reason: "timeout", winnerId, loserId,isGuest: isGuestRef.current }),
     });
   };
 
@@ -231,6 +252,10 @@ function ChessboardComponent() {
       if (!piece) return false;
       const isWhite = userId === whitePlayerIdRef.current;
       const isBlack = userId === blackPlayerIdRef.current;
+      console.log("isWhite "+isWhite);
+      console.log("isBlack "+isBlack);
+
+
 
       if ((isWhite && piece.color !== "w") || (isBlack && piece.color !== "b"))
         return false;
@@ -247,6 +272,7 @@ function ChessboardComponent() {
         setGame(gameCopy);
         playMoveSound();
 
+        // Start respective timer only after first move
         if (move.color === "w" && !whiteStartedRef.current)
           setWhiteStarted(true);
         if (move.color === "b" && !blackStartedRef.current)
@@ -264,9 +290,10 @@ function ChessboardComponent() {
           const { reason, winnerId, loserId } =
             getGameOverReasonAndWinner(gameCopy);
 
+          console.log("isGuest "+isGuestRef.current);
           stompClientRef.current?.publish({
             destination: `/app/game.over/${gameIdRef.current}`,
-            body: JSON.stringify({ reason, winnerId, loserId }),
+            body: JSON.stringify({ reason, winnerId, loserId,isGuest: isGuestRef.current }),
           });
         }
 
@@ -292,9 +319,17 @@ function ChessboardComponent() {
           ? blackPlayerIdRef.current
           : whitePlayerIdRef.current;
 
+      console.log(winnerId);
+
+      const loserId =
+        resigningId === whitePlayerIdRef.current
+          ? whitePlayerIdRef.current
+          : blackPlayerIdRef.current;
+
+      console.log("isGuest "+isGuestRef.current);
       stompClientRef.current.publish({
         destination: `/app/game.over/${gameIdRef.current}`,
-        body: JSON.stringify({ reason: "resignation", winnerId }),
+        body: JSON.stringify({ reason: "resignation", winnerId,loserId,isGuest: isGuestRef.current }),
       });
     }
   };

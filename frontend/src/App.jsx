@@ -24,7 +24,7 @@ function App() {
         <Route path="/lobby/:lobbyId" element={<LobbyDetails />} />
         <Route path="/lobby" element={<LobbyManager />} />
         {/* New route for initiating magic link login/registration */}
-        <Route path="/magic-link-request" element={<MagicLinkRequest />} />
+        <Route path="/login" element={<MagicLinkRequest />} />
         {/* Existing route for handling the magic link callback */}
         <Route path="/magic-login" element={<MagicLoginHandler />} />
       </Routes>

@@ -9,4 +9,5 @@ public class GameOverReq {
     private String Reason;
     private String WinnerId;
     private String LoserId;
+    private boolean isGuest;
 }

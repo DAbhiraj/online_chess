@@ -4,7 +4,7 @@ import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import Particles from "../../assets/Particles"; // Assuming this path is correct
 import GooeyNav from "../../assets/GoevyNav";
-import BackgroundLetterAvatars from "../../assets/Avatar"; // This might not be used anymore if avatars are linked to traditional login
+import BackgroundLetterAvatars from "../../assets/Avatar";
 const WEBSOCKET_URL = "http://localhost:8080/ws";
 import StarBorder from "../../assets/StarBorder";
 
@@ -50,45 +50,47 @@ function HomePage() {
     });
 
     client.onConnect = (frame) => {
-      console.log("Connected to WebSocket (HomePage):", frame);
-      setIsConnected(true);
-      setMatchmakingStatus("waiting"); // Immediately transition to waiting after connection
+      console.log("Connected to WebSocket");
+      setIsConnected(true); // <--- Set isConnected to true here
 
-      // --- SUBSCRIBE TO PRIVATE MATCHMAKING QUEUE ---
-      console.log("subscribing to matchmaking");
-      client.subscribe(`/user/queue/matchmaking`, (message) => {
-        console.log("subscribing to matchmaking");
-        try {
-          const matchDetails = JSON.parse(message.body);
-          console.log("Received matchmaking details (HomePage):", matchDetails);
-          if (matchDetails.gameId) {
-            setMatchDetails(matchDetails);
-            setMatchmakingStatus("in_game");
+      if (TEST_JWT_TOKEN == null) {
+        // 👇 Subscribe to standard guest queue
+        console.log("going to subscribe guest");
+        client.subscribe("/user/queue/guest", (message) => {
+          console.log("in guest subscribe");
+          const guestId = message.body;
+          console.log("Received guest ID:", guestId);
 
-            if (stompClientRef.current && stompClientRef.current.connected) {
-              stompClientRef.current.deactivate();
-              console.log("STOMP client deactivated on HomePage after match.");
-            }
-          } else if (matchDetails.status === "waiting") {
-            setMatchmakingStatus("waiting");
-            console.log("Still waiting for an opponent...");
-          }
-        } catch (e) {
-          console.error(
-            "Failed to parse matchmaking message body:",
-            message.body,
-            e
-          );
-        }
+          localStorage.setItem("email", guestId);
+          userIdRef.current = guestId;
+
+          // Only send matchmaking after getting the guestId
+          client.publish({
+            destination: "/app/game.find",
+            body: JSON.stringify({ userId: guestId }),
+          });
+        });
+
+        client.publish({
+          destination: "/app/guest.requestGuestId", // Define a new endpoint on backend
+          // No body needed if the backend can get the user's Principal from the session
+        });
+        console.log("Sent request for guest ID.");
+
+      } else {
+        // Authenticated user: send matchmaking request directly
+        client.publish({
+          destination: "/app/game.find",
+          body: JSON.stringify({ userId: userIdRef.current }),
+        });
+      }
+
+      // Also subscribe to matchmaking response
+      client.subscribe("/user/queue/matchmaking", (message) => {
+        const matchDetails = JSON.parse(message.body);
+        console.log("Matchmaking details:", matchDetails);
+        setMatchDetails(matchDetails);
       });
-
-      // Send the find opponent request immediately after connecting and subscribing
-      client.publish({
-        destination: `/app/game.find`,
-        body: JSON.stringify({ userId: userIdRef.current }), // Send your user ID (from frontend)
-      });
-
-      console.log(`Sent find opponent request for user: ${userIdRef.current}`);
     };
 
     client.onStompError = (frame) => {
@@ -131,9 +133,8 @@ function HomePage() {
     }
   }, [stompClient, matchmakingStatus]);
 
-  // redirect to MagicLinkRequest
   const handleLoginRedirect = () => {
-    navigate("/magic-link-request");
+    navigate("/login");
   };
 
   const handleLobbyRedirect = () => {
@@ -166,7 +167,7 @@ function HomePage() {
         />
       </div>
 
-      <div className="absolute items-center top-5 z-20">
+      <div className="absolute items-center  top-5  z-20">
         <GooeyNav
           items={items}
           particleCount={15}
@@ -180,7 +181,7 @@ function HomePage() {
       </div>
 
       {/* Content Overlay */}
-      <div className="absolute items-center top-2 right-2 z-20">
+      <div className="absolute items-center  top-2 right-2 z-20">
         {TEST_JWT_TOKEN ? (
           <button
             onClick={handleLogout}
@@ -191,7 +192,7 @@ function HomePage() {
         ) : (
           <button
             onClick={handleLoginRedirect}
-            className="mt-2 px-4 py-2 cursor-pointer bg-zinc-800 text-white rounded-md hover:bg-blue-600 transition duration-300 ease-in-out"
+            className="mt-2 px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition duration-300 ease-in-out"
           >
             Login
           </button>
@@ -208,6 +209,7 @@ function HomePage() {
               {localStorage.getItem("name")} !!
             </p>
             {matchmakingStatus === "idle" && (
+
               <StarBorder
                 as="button"
                 onClick={handlePlayGame}
@@ -222,7 +224,7 @@ function HomePage() {
         ) : (
           <>
             {matchmakingStatus === "idle" && (
-              <StarBorder
+               <StarBorder
                 as="button"
                 onClick={handlePlayGame}
                 color="cyan"

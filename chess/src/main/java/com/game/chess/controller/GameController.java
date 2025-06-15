@@ -12,6 +12,8 @@ import com.game.chess.model.User;
 import com.game.chess.service.GameService;
 import com.game.chess.service.LobbyService;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.security.Principal;
 import java.util.List;
 import java.util.Optional;
@@ -24,12 +26,14 @@ import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessageSendingOperations;
+import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Controller;
 
 
 
 
 @Controller
+@Slf4j
 public class GameController {
 
     @Autowired
@@ -84,7 +88,7 @@ public class GameController {
             String fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
             gameService.sendMatchmakingResponse(userId, "success", gameId, opponentId, fen, userColor);
             gameService.sendMatchmakingResponse(opponentId, "success", gameId, userId, fen, "black");
-            gameService.handleUser(userId,opponentId,true,"");
+            gameService.handleUser(userId,opponentId,true,"",false);
         }
     }
 
@@ -119,9 +123,10 @@ public class GameController {
 
     @MessageMapping("/game.over/{gameId}")
     public void handleGameOver(@DestinationVariable String gameId,GameOverReq gameOverdto){
-        gameService.handleUser(gameOverdto.getWinnerId(),gameOverdto.getLoserId(),false,gameOverdto.getReason());
-        gameService.handleGameOver(gameId,gameOverdto.getReason(),gameOverdto.getWinnerId(),gameOverdto.getLoserId());
+        gameService.handleUser(gameOverdto.getWinnerId(),gameOverdto.getLoserId(),false,gameOverdto.getReason(),gameOverdto.isGuest());
+        gameService.handleGameOver(gameId,gameOverdto.getReason(),gameOverdto.getWinnerId(),gameOverdto.getLoserId(),gameOverdto.isGuest());
     }
+
 
     @MessageMapping("/game.lobby.match.random/{lobbyId}")
     public void matchWithRandom(@DestinationVariable String lobbyId,SimpMessageHeaderAccessor headerAccessor) {
@@ -130,7 +135,7 @@ public class GameController {
             gameService.sendError(headerAccessor.getSessionId(), "Authentication required");
             return;
         }
-
+        
         String userId = principal.getName();
         Optional<User> opponentOpt = lobbyService.getRandomOpponentInLobby(lobbyId, userId);
 
@@ -146,7 +151,7 @@ public class GameController {
 
         gameService.sendMatchmakingResponse(userId, "success", gameId, opponentId, fen, "white");
         gameService.sendMatchmakingResponse(opponentId, "success", gameId, userId, fen, "black");
-        gameService.handleUser(userId,opponentId,true,"");
+        gameService.handleUser(userId,opponentId,true,"",false);
     }
 
     @MessageMapping("/game.lobby.match.specific/{lobbyId}")
@@ -209,11 +214,24 @@ public class GameController {
             gameService.sendMatchmakingResponse(initiatorId, "success", gameId, userId, fen, "white");
             gameService.sendMatchmakingResponse(userId, "success", gameId, initiatorId, fen, "black");
             logger.debug("going to handleUser");
-            gameService.handleUser(initiatorId,userId,true,""); 
+            gameService.handleUser(initiatorId,userId,true,"",false); 
         } else {
         // Notify initiator of rejection
             messagingTemplate.convertAndSendToUser(request.getInitiatorEmail(), "/queue/rejected", "user rejected the request");
          }
+    }
+
+    @MessageMapping("/guest.requestGuestId") // This matches "/app/guest.requestGuestId" from frontend
+    public void requestGuestId(StompHeaderAccessor headerAccessor, Principal principal) {
+        if (principal != null && principal.getName().startsWith("guest-")) {
+            String guestId = principal.getName();
+            // Send the ID ONLY AFTER the client has explicitly requested it,
+            // meaning their subscription should be active.
+            messagingTemplate.convertAndSendToUser(guestId, "/queue/guest", guestId);
+            log.info("Guest ID {} sent on request to /queue/guest", guestId);
+        } else {
+            log.warn("Non-guest or unauthenticated user tried to request guest ID.");
+        }
     }
 
 

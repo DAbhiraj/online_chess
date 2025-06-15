@@ -272,20 +272,23 @@ public class GameService {
         return game;
     }
 
-    public void handleGameOver(String gameId, String status, String winnerId,String loserId) {
+    public void handleGameOver(String gameId, String status, String winnerId,String loserId,boolean isGuest) {
         Optional<Game> gameOpt = getGame(gameId);
+
         if (gameOpt.isPresent()) {
             Game game = gameOpt.get();
             game.setStatus(status);
             game.setWinnerId(winnerId);
             redisTemplate.opsForValue().set(GAME_KEY_PREFIX + gameId, game, GAME_TTL_HOURS, TimeUnit.HOURS);
-            gameRepository.save(game);
+            if(!isGuest)
+                gameRepository.save(game);
             logger.info("Game " + gameId + " ended with status: " + status);
             redisTemplate.delete("game:" + gameId);
             logger.info("cleared " + gameId + " in redis ");
-            GameOverReq payload = new GameOverReq(status, winnerId,loserId);
+            GameOverReq payload = new GameOverReq(status, winnerId,loserId,false);
             messagingTemplate.convertAndSend("/topic/game/" + gameId + "/gameover", payload);
-            updateRatings(winnerId, loserId);
+            if(!isGuest)
+                updateRatings(winnerId, loserId);
         }
     }
 
@@ -371,11 +374,7 @@ public class GameService {
      public GameStateDTO processMoveForGuests(String gameId, MoveRequest moveRequest) {
         Game game = getGuestGame(gameId);
 
-
         logger.info("in processMove");
-
-        // --- IMPORTANT: This section needs server-side validation and chesslib logic ---
-
 
         String currentFen = game.getFen(); // Get current FEN from game object
         String currentTurn = game.getTurn(); // Get current turn from game object
@@ -412,7 +411,10 @@ public class GameService {
         return new GameStateDTO(game.getFen(), game.getTurn(), game.getStatus(), game.getWinnerId(), game.getFullMoveNumber());
     }
 
-    public void handleUser(String winnerId,String loserId,boolean matchStatus,String reason){
+    public void handleUser(String winnerId,String loserId,boolean matchStatus,String reason,boolean isGuest){
+        if(isGuest){
+            return;
+        }
         User user = userService.getPlayer(winnerId);
         User opponent = userService.getPlayer(loserId);
         logger.info(user.getEmail()+" "+opponent.getEmail()+" "+matchStatus);
