@@ -19,13 +19,10 @@ function App() {
       <Routes>
         <Route path="/profile" element={<Profile/>}/>
         <Route path="/chess/:gameId" element={<ChessboardComponent />} />
-        {/* Removed the /login and /register routes */}
         <Route path="/" element={<HomePage />} />
         <Route path="/lobby/:lobbyId" element={<LobbyDetails />} />
         <Route path="/lobby" element={<LobbyManager />} />
-        {/* New route for initiating magic link login/registration */}
         <Route path="/login" element={<MagicLinkRequest />} />
-        {/* Existing route for handling the magic link callback */}
         <Route path="/magic-login" element={<MagicLoginHandler />} />
       </Routes>
     </Router>

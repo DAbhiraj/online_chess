@@ -3,6 +3,7 @@ import SockJS from "sockjs-client";
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
+import MatchmakingRequestModal from "./MatchMakingReqModal";
 
 const LobbyDetails = () => {
   const { lobbyId } = useParams();
@@ -10,6 +11,7 @@ const LobbyDetails = () => {
   const userId = localStorage.getItem("email");
   const [players, setPlayers] = useState([]);
   const [stompClient, setStompClient] = useState(null);
+  const [incomingRequest, setIncomingRequest] = useState(null);
 
   const WEBSOCKET_URL = `http://localhost:8080/ws`;
   const API_BASE = "http://localhost:8080/api/lobby";
@@ -41,40 +43,23 @@ const LobbyDetails = () => {
     client.onConnect = () => {
       console.log("✅ Connected to matchmaking");
 
-      // 1. Subscribe to matchmaking request (as invited player)
       client.subscribe("/user/queue/matchmaking", (message) => {
         const data = JSON.parse(message.body);
-        console.log("Received matchmaking request:", data);
+        console.log("Received matchmaking:", data);
 
         if (data.status === "success" && data.gameId) {
-          // Already confirmed, redirect immediately
           navigate(`/chess/${data.gameId}`);
-        } 
+        }
       });
 
-      // 2. Subscribe to rejection notice (for inviter)
-      client.subscribe("/user/queue/rejected", (message) => {
+      client.subscribe("/user/queue/rejected", () => {
         alert("❌ Your matchmaking request was rejected.");
       });
 
-      client.subscribe("/user/queue/matchmaking/request",(message)=>{
+      client.subscribe("/user/queue/matchmaking/request", (message) => {
         const data = JSON.parse(message.body);
-        console.log("Received matchmaking request:", data);
-        if (data.userId && data.lobbyId) {
-          const confirm = window.confirm(
-            `🔔 ${data.userId} invited you to a game. Accept?`
-          );
-
-          const confirmationPayload = {
-            initiatorEmail: data.userId,
-            confirmed: confirm,
-          };
-
-          client.publish({
-            destination: `/app/matchmaking/confirm`,
-            body: JSON.stringify(confirmationPayload),
-          });
-        }
+        console.log("Matchmaking request received:", data);
+        setIncomingRequest(data);
       });
 
       setStompClient(client);
@@ -112,6 +97,28 @@ const LobbyDetails = () => {
     }
   };
 
+  const handleConfirm = () => {
+    stompClient.publish({
+      destination: `/app/matchmaking/confirm`,
+      body: JSON.stringify({
+        initiatorEmail: incomingRequest.userId,
+        confirmed: true,
+      }),
+    });
+    setIncomingRequest(null);
+  };
+
+  const handleReject = () => {
+    stompClient.publish({
+      destination: `/app/matchmaking/confirm`,
+      body: JSON.stringify({
+        initiatorEmail: incomingRequest.userId,
+        confirmed: false,
+      }),
+    });
+    setIncomingRequest(null);
+  };
+
   return (
     <div className="max-w-xl mx-auto mt-10 p-4 bg-white shadow-md rounded-lg">
       <h2 className="text-2xl font-bold mb-4">Lobby: {lobbyId}</h2>
@@ -121,6 +128,7 @@ const LobbyDetails = () => {
       >
         Play Random
       </button>
+
       {players.length === 0 ? (
         <p>No players in this lobby.</p>
       ) : (
@@ -143,6 +151,14 @@ const LobbyDetails = () => {
           ))}
         </ul>
       )}
+
+      {/* MUI Modal for Matchmaking */}
+      <MatchmakingRequestModal
+        open={Boolean(incomingRequest)}
+        request={incomingRequest}
+        onConfirm={handleConfirm}
+        onReject={handleReject}
+      />
     </div>
   );
 };
