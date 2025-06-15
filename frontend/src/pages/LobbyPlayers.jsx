@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import MatchmakingRequestModal from "./MatchMakingReqModal";
+import Particles from "../assets/Particles";
 
 const LobbyDetails = () => {
   const { lobbyId } = useParams();
@@ -120,10 +121,24 @@ const LobbyDetails = () => {
   };
 
   return (
-    <div className="max-w-xl mx-auto mt-10 p-4 bg-white shadow-md rounded-lg">
+    <div className="relative min-h-screen flex flex-col justify-center items-center bg-black font-sans text-black-800 text-center">
+      <div className="absolute inset-0 z-0">
+        <Particles
+          particleColors={["#ffffff", "#ffffff"]}
+          particleCount={200}
+          particleSpread={10}
+          speed={0.1}
+          particleBaseSize={100}
+          moveParticlesOnHover={true}
+          alphaParticles={false}
+          disableRotation={false} 
+        />
+      </div>
+
+    <div className=" w-1/2 min-h-[50vh] my-6 flex flex-col gap-4 justify-center bg-[#111827] opacity-80 max-w-xl mx-auto mt-10 p-4 text-white shadow-md rounded-lg z-50">
       <h2 className="text-2xl font-bold mb-4">Lobby: {lobbyId}</h2>
       <button
-        className="px-3 py-1 mb-3 bg-red-500 text-white rounded hover:bg-red-600"
+        className=" px-3 py-2 mb-3 bg-blue-800 text-white rounded hover:bg-blue-700  cursor-pointer transistion-all duration-300 "
         onClick={playRandom}
       >
         Play Random
@@ -132,7 +147,7 @@ const LobbyDetails = () => {
       {players.length === 0 ? (
         <p>No players in this lobby.</p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-5">
           {players.map((player) => (
             <li
               key={player.id}
@@ -141,7 +156,7 @@ const LobbyDetails = () => {
               <span>{player.email}</span>
               {player.email !== userId && (
                 <button
-                  className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+                  className="px-4 py-1 bg-blue-600 cursor-pointer text-white rounded hover:bg-blue-700"
                   onClick={() => playWith(player.email)}
                 >
                   Play
@@ -159,6 +174,7 @@ const LobbyDetails = () => {
         onConfirm={handleConfirm}
         onReject={handleReject}
       />
+    </div>
     </div>
   );
 };

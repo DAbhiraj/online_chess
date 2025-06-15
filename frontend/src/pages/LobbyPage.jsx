@@ -9,6 +9,8 @@ function LobbyManager() {
   const [lobbies, setLobbies] = useState([]);
   const [newLobbyId, setNewLobbyId] = useState("");
   const [message, setMessage] = useState("");
+  const [showPopup, setShowPopup] = useState(false);
+  const [createdLobbyId, setCreatedLobbyId] = useState("");
   const userId = localStorage.getItem("email");
 
   useEffect(() => {
@@ -19,7 +21,6 @@ function LobbyManager() {
     try {
       const response = await axios.get(`${API_BASE}/mylobby/${userId}`);
       setLobbies(response.data);
-      console.log(response.data);
     } catch (err) {
       console.error("Error fetching lobbies", err);
     }
@@ -31,8 +32,9 @@ function LobbyManager() {
         lobbyId: newLobbyId,
         ownerId: userId,
       });
+      setCreatedLobbyId(response.data.lobbyId);
       setMessage("✅ Lobby created!");
-      console.log(response.data);
+      setShowPopup(true);
       localStorage.setItem("lobbyId", response.data.lobbyId);
       fetchMyLobbies();
     } catch (err) {
@@ -70,8 +72,15 @@ function LobbyManager() {
     }
   };
 
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(createdLobbyId);
+    setMessage("✅ Copied to clipboard!");
+    setTimeout(() => setShowPopup(false), 1000);
+  };
+
   return (
     <div className="relative min-h-screen flex flex-col justify-center items-center bg-black font-sans text-black-800 text-center">
+      {/* Particles background */}
       <div className="absolute inset-0 z-0">
         <Particles
           particleColors={["#ffffff", "#ffffff"]}
@@ -85,81 +94,107 @@ function LobbyManager() {
         />
       </div>
 
-    <div className="min-h-screen w-3xl text-white flex items-center justify-center p-6 z-100">
-      <div className="w-full max-w-3xl   px-10 py-12 rounded-lg shadow-lg">
-        <h2 className="text-3xl font-bold text-center mb-6 text-white">🎮 Lobby Manager</h2>
-
-        <div className="mb-6 flex gap-2">
-          <input
-            type="text"
-            className="flex-1 p-2 border border-gray-600 rounded-md bg-gray-800 text-white"
-            placeholder="Enter Lobby ID"
-            value={newLobbyId}
-            onChange={(e) => setNewLobbyId(e.target.value)}
-          />
-          <button
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-            onClick={createLobby}
-          >
-            Create
-          </button>
-        </div>
-
-        <h3 className="text-xl font-semibold mb-2 text-white">🧑‍🤝‍🧑 My Lobbies</h3>
-        <ul className="space-y-3 mb-6">
-          {lobbies.map((lobby) => (
-            <li key={lobby.lobbyId} className="p-4 border border-gray-700 rounded-md flex justify-between items-center bg-gray-800">
-              <div>
-                <Link to={`/lobby/${lobby.lobbyId}`} className="font-medium text-cyan-400 hover:underline">
-                  {lobby.name || lobby.lobbyId}
-                </Link>
-                <p className="text-sm text-gray-400">
-                  Players: {lobby.players?.length || 0}
-                </p>
-              </div>
-              <div className="space-x-2">
-                <button
-                  className="text-yellow-400 hover:underline"
-                  onClick={() => leaveLobby(lobby.lobbyId)}
-                >
-                  Leave
-                </button>
-                {lobby.ownerId === userId && (
-                  <button
-                    className="text-red-400 hover:underline"
-                    onClick={() => deleteLobby(lobby.lobbyId)}
-                  >
-                    Delete
-                  </button>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
-
-        <h3 className="text-xl font-semibold mb-2 text-white">➕ Join Lobby</h3>
-        <div className="flex gap-2 mb-4">
-          <input
-            type="text"
-            className="flex-1 p-2 border border-gray-600 rounded-md bg-gray-800 text-white"
-            placeholder="Lobby ID to join"
-            onChange={(e) => setNewLobbyId(e.target.value)}
-          />
-          <button
-            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-            onClick={() => joinLobby(newLobbyId)}
-          >
-            Join
-          </button>
-        </div>
-
-        {message && (
-          <div className="text-center text-sm text-green-400 font-medium mt-4">
-            {message}
+      {/* Popup overlay */}
+      {showPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+          <div className="bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full border border-cyan-400">
+            <h3 className="text-xl font-bold text-cyan-400 mb-4">Lobby Created!</h3>
+            <p className="text-white mb-2">Share this code with friends to join:</p>
+            <div className="flex items-center justify-between bg-gray-700 p-3 rounded mb-4">
+              <code className="text-white text-lg font-mono">{createdLobbyId}</code>
+              <button 
+                onClick={copyToClipboard}
+                className="ml-4 px-3 py-1 bg-cyan-600 text-white rounded hover:bg-cyan-700 transition-all duration-300 cursor-pointer"
+              >
+                Copy
+              </button>
+            </div>
+            <button
+              onClick={() => setShowPopup(false)}
+              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-all duration-200 cursor-pointer" 
+            >
+              Close
+            </button>
           </div>
-        )}
+        </div>
+      )}
+
+      {/* Main content */}
+      <div className="relative w-full max-w-3xl px-6 py-8 md:px-10 md:py-12 rounded-lg z-10">
+        <div className="bg-[#111827] opacity-80  rounded-lg p-6 shadow-lg">
+          <h2 className="text-3xl font-bold text-center mb-6 text-white">🎮 Lobby Manager</h2>
+
+          <div className="mb-6 flex gap-2">
+            <input
+              type="text"
+              className="flex-1 p-2 border border-gray-600 rounded-md bg-gray-800 text-white"
+              placeholder="Enter Lobby ID"
+              value={newLobbyId}
+              onChange={(e) => setNewLobbyId(e.target.value)}
+            />
+            <button
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 cursor-pointer"
+              onClick={createLobby}
+            >
+              Create
+            </button>
+          </div>
+
+          <h3 className="text-xl font-semibold mb-2 text-white">🧑‍🤝‍🧑 My Lobbies</h3>
+          <ul className="space-y-3 mb-6">
+            {lobbies.map((lobby) => (
+              <li key={lobby.lobbyId} className="p-4 border border-gray-700 rounded-md flex justify-between items-center bg-gray-800">
+                <div>
+                  <Link to={`/lobby/${lobby.lobbyId}`} className="font-medium text-cyan-400 hover:underline">
+                    {lobby.name || lobby.lobbyId}
+                  </Link>
+                  <p className="text-sm text-gray-400">
+                    Players: {lobby.players?.length || 0}
+                  </p>
+                </div>
+                <div className="space-x-2">
+                  <button
+                    className="text-yellow-400 hover:underline cursor-pointer mx-2 px-2"
+                    onClick={() => leaveLobby(lobby.lobbyId)}
+                  >
+                    Leave
+                  </button>
+                  {lobby.ownerId === userId && (
+                    <button
+                      className="text-red-400 hover:underline cursor-pointer"
+                      onClick={() => deleteLobby(lobby.lobbyId)}
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          <h3 className="text-xl font-semibold mb-2 text-white">➕ Join Lobby</h3>
+          <div className="flex gap-2 mb-4">
+            <input
+              type="text"
+              className="flex-1 p-2 border border-gray-600 rounded-md bg-gray-800 text-white"
+              placeholder="Lobby ID to join"
+              onChange={(e) => setNewLobbyId(e.target.value)}
+            />
+            <button
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 cursor-pointer"
+              onClick={() => joinLobby(newLobbyId)}
+            >
+              Join
+            </button>
+          </div>
+
+          {message && (
+            <div className="text-center text-sm text-green-400 font-medium mt-4">
+              {message}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
     </div>
   );
 }
