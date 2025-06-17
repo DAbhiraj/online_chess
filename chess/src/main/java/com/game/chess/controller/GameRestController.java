@@ -11,7 +11,10 @@ import com.game.chess.dto.PlayerResponse;
 import com.game.chess.model.Game;
 import com.game.chess.service.GameService;
 
+import lombok.extern.slf4j.Slf4j;
+
 @RestController
+@Slf4j
 public class GameRestController {
 
     @Autowired
@@ -19,15 +22,19 @@ public class GameRestController {
 
     @GetMapping("game/{gameId}")
     public ResponseEntity<GameStateDTO> getGameState(@PathVariable String gameId) {
+        log.info("in get game");
         return gameService.getGame(gameId)
                 .map(game -> {
-                    // Convert your Game entity to GameStateDTO
                     GameStateDTO dto = new GameStateDTO(
                         game.getFen(),
                         game.getTurn(),
                         game.getStatus(),
                         game.getWinnerId(),
-                        game.getFullMoveNumber()
+                        game.getFullMoveNumber(),
+                        null,
+                        null,
+                        game.getWhiteTimeLeft(),
+                        game.getBlackTimeLeft()
                     );
                     return ResponseEntity.ok(dto);
                 })

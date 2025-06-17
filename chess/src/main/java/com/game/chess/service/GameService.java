@@ -13,6 +13,8 @@ import com.game.chess.repo.GameRepository;
 import com.game.chess.repo.MoveRepository;
 import com.game.chess.repo.UserRepository;
 
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.messaging.simp.SimpMessageSendingOperations;
@@ -32,6 +34,7 @@ import org.slf4j.LoggerFactory;
 
 
 @Service
+@Slf4j
 public class GameService {
     private static final String GAME_KEY_PREFIX = "game:";
     private static final long GAME_TTL_HOURS = 2;
@@ -62,9 +65,9 @@ public class GameService {
     @Autowired
     private SimpMessageSendingOperations messagingTemplate;
 
-    public String createNewGame(String player1Id, String player2Id) {
+    public String createNewGame(String player1Id, String player2Id,int whiteTimeLeft,int blackTimeLeft) {
         String gameId = UUID.randomUUID().toString();
-        Game newGame = new Game(gameId, player1Id, player2Id);
+        Game newGame = new Game(gameId, player1Id, player2Id,whiteTimeLeft,blackTimeLeft);
 
         redisTemplate.opsForValue().set(GAME_KEY_PREFIX + gameId, newGame, GAME_TTL_HOURS, TimeUnit.HOURS);
         logger.info("Created new game in Redis: " + gameId);
@@ -75,6 +78,7 @@ public class GameService {
 
     public Optional<Game> getGame(String gameId) {
         Game game = (Game) redisTemplate.opsForValue().get(GAME_KEY_PREFIX + gameId);
+        log.info(game.getPlayer1Id()+" "+game.getPlayer2Id());
         return Optional.ofNullable(game);
     }
 
@@ -85,30 +89,38 @@ public class GameService {
 
         logger.info("in processMove");
 
-        // --- IMPORTANT: This section needs server-side validation and chesslib logic ---
-
-
-        String currentFen = game.getFen(); // Get current FEN from game object
-        String currentTurn = game.getTurn(); // Get current turn from game object
-        int currentFullMoveNumber = game.getFullMoveNumber(); // Get current move number
+        String currentFen = game.getFen(); 
+        String currentTurn = game.getTurn(); 
+        int currentFullMoveNumber = game.getFullMoveNumber(); 
 
         logger.info("currentFen is "+currentFen);
 
-        // Simulate applying the move and updating state (NO VALIDATION)
-        String newFen = moveRequest.getFenAfterMove(); // Trusting frontend for new FEN
-        String nextTurn = currentTurn.equals("w") ? "b" : "w"; // Flip turn
+        
+        String newFen = moveRequest.getFenAfterMove(); 
+        String nextTurn = currentTurn.equals("w") ? "b" : "w"; 
 
         // Increment fullMoveNumber only after Black's move
         if (currentTurn.equals("b")) {
             currentFullMoveNumber++;
         }
+
+        long now = System.currentTimeMillis();
+        long elapsedSec = (now - game.getLastMoveTime()) / 1000;
+
+        if (game.getTurn().equals("w")) {
+            game.setWhiteTimeLeft(game.getWhiteTimeLeft() - (int) elapsedSec);
+        } else {
+            game.setBlackTimeLeft(game.getBlackTimeLeft() - (int) elapsedSec);
+        }
+        game.setLastMoveTime(now);
+
         logger.info("new fen is "+ newFen);
         game.setFen(newFen);
         game.setTurn(nextTurn);
         game.setLastMoveTime(Instant.now().toEpochMilli());
         game.setFullMoveNumber(currentFullMoveNumber); // <-- Update the Game object
 
-        // Placeholder for game over conditions (NO VALIDATION)
+        
         game.setStatus("ONGOING"); // Defaulting to ongoing
         game.setWinnerId(null); // No winner yet
 
@@ -123,7 +135,7 @@ public class GameService {
         saveMoveToHistory(gameId, moveRequest, currentFullMoveNumber); // Pass the updated fullMoveNumber
 
         // Return a DTO for the frontend, including the fullMoveNumber
-        return new GameStateDTO(game.getFen(), game.getTurn(), game.getStatus(), game.getWinnerId(), game.getFullMoveNumber());
+        return new GameStateDTO(game.getFen(), game.getTurn(), game.getStatus(), game.getWinnerId(), game.getFullMoveNumber(),moveRequest.getFrom(),moveRequest.getTo(),game.getWhiteTimeLeft(),game.getBlackTimeLeft());
     }
 
     public void saveMoveToHistory(String gameId, MoveRequest moveRequest, Integer moveNumber) {
@@ -363,7 +375,9 @@ public class GameService {
 
     public String createGuestGame(String player1Id, String player2Id) {
         String gameId = UUID.randomUUID().toString();
-        Game newGame = new Game(gameId, player1Id, player2Id);
+        int whiteTimeLeft = 600;
+        int blackTimeLeft = 600;
+        Game newGame = new Game(gameId, player1Id, player2Id,whiteTimeLeft,blackTimeLeft);
 
         redisTemplate.opsForValue().set(GAME_KEY_PREFIX + gameId, newGame, GAME_TTL_HOURS, TimeUnit.HOURS);
         logger.info("Created new game in Redis: " + gameId);
@@ -390,6 +404,17 @@ public class GameService {
         if (currentTurn.equals("b")) {
             currentFullMoveNumber++;
         }
+
+        long now = System.currentTimeMillis();
+        long elapsedSec = (now - game.getLastMoveTime()) / 1000;
+
+        if (game.getTurn().equals("w")) {
+            game.setWhiteTimeLeft(game.getWhiteTimeLeft() - (int) elapsedSec);
+        } else {
+            game.setBlackTimeLeft(game.getBlackTimeLeft() - (int) elapsedSec);
+        }
+        game.setLastMoveTime(now);
+
         logger.info("new fen is "+ newFen);
         game.setFen(newFen);
         game.setTurn(nextTurn);
@@ -408,7 +433,7 @@ public class GameService {
 
 
         // Return a DTO for the frontend, including the fullMoveNumber
-        return new GameStateDTO(game.getFen(), game.getTurn(), game.getStatus(), game.getWinnerId(), game.getFullMoveNumber());
+        return new GameStateDTO(game.getFen(), game.getTurn(), game.getStatus(), game.getWinnerId(), game.getFullMoveNumber(),moveRequest.getFrom(),moveRequest.getTo(),game.getWhiteTimeLeft(),game.getWhiteTimeLeft());
     }
 
     public void handleUser(String winnerId,String loserId,boolean matchStatus,String reason,boolean isGuest){

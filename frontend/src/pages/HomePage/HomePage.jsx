@@ -2,27 +2,39 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
-import Particles from "../../assets/Particles"; // Assuming this path is correct
+import CircularProgress from "@mui/material/CircularProgress"; // ✅ MUI Progress Spinner
+import Particles from "../../assets/Particles";
+import StarBorder from "../../assets/StarBorder";
 
 const WEBSOCKET_URL = import.meta.env.VITE_WEBSOCKET_URL;
-import StarBorder from "../../assets/StarBorder";
 
 function HomePage() {
   const navigate = useNavigate();
   const [stompClient, setStompClient] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [matchmakingStatus, setMatchmakingStatus] = useState("idle"); // 'idle', 'connecting', 'waiting', 'in_game'
-  const [gameId, setGameId] = useState(null); // Will store the gameId once matched
+  const [gameId, setGameId] = useState(null);
   const [matchDetails, setMatchDetails] = useState(null);
-  const userIdRef = useRef(localStorage.getItem("email")); // Use the actual user ID from your generated JWT
+  const userIdRef = useRef(localStorage.getItem("email"));
 
-  const TEST_JWT_TOKEN = localStorage.getItem("authToken"); // REPLACE THIS WITH YOUR GENERATED TOKEN
-  //console.log("jwt token is " + TEST_JWT_TOKEN);
+  const TEST_JWT_TOKEN = localStorage.getItem("authToken");
   const stompClientRef = useRef(stompClient);
 
   useEffect(() => {
     stompClientRef.current = stompClient;
   }, [stompClient]);
+
+  useEffect(() => {
+  const email = localStorage.getItem("email");
+  if (email?.startsWith("guest-")) {
+    // Optional: also clear name if you set it for guests
+    localStorage.removeItem("email");
+    localStorage.removeItem("name");
+    userIdRef.current = null;
+    console.log("Cleared guest ID after returning from game");
+  }
+}, []);
+
 
   useEffect(() => {
     if (matchDetails?.gameId) {
@@ -36,77 +48,68 @@ function HomePage() {
   }, [matchDetails, navigate]);
 
   useEffect(() => {
-    // Append the JWT token as a query parameter to the WebSocket URL.
-    // This is a common workaround for SockJS when `connectHeaders` are not reliably passed
-    // during the initial HTTP handshake for fallback transports.
     const websocketUrlWithToken = TEST_JWT_TOKEN
       ? `${WEBSOCKET_URL}?token=${TEST_JWT_TOKEN}`
       : `${WEBSOCKET_URL}`;
-    console.log("url is " + websocketUrlWithToken);
+
     const client = new Client({
       webSocketFactory: () => new SockJS(websocketUrlWithToken),
       reconnectDelay: 5000,
     });
 
-    client.onConnect = (frame) => {
+    client.onConnect = () => {
       console.log("Connected to WebSocket");
-      setIsConnected(true); // <--- Set isConnected to true here
+      setIsConnected(true);
 
-      if (TEST_JWT_TOKEN == null) {
-        // 👇 Subscribe to standard guest queue
-        console.log("going to subscribe guest");
+      if (!TEST_JWT_TOKEN) {
+        console.log("Subscribing as guest");
         client.subscribe("/user/queue/guest", (message) => {
-          console.log("in guest subscribe");
           const guestId = message.body;
-          console.log("Received guest ID:", guestId);
-
           localStorage.setItem("email", guestId);
           userIdRef.current = guestId;
 
-          // Only send matchmaking after getting the guestId
           client.publish({
             destination: "/app/game.find",
             body: JSON.stringify({ userId: guestId }),
           });
+
+          setMatchmakingStatus("waiting");
         });
 
         client.publish({
-          destination: "/app/guest.requestGuestId", // Define a new endpoint on backend
-          // No body needed if the backend can get the user's Principal from the session
+          destination: "/app/guest.requestGuestId",
         });
-        console.log("Sent request for guest ID.");
-
+        console.log("Sent guest ID request");
       } else {
-        // Authenticated user: send matchmaking request directly
         client.publish({
           destination: "/app/game.find",
           body: JSON.stringify({ userId: userIdRef.current }),
         });
+
+        setMatchmakingStatus("waiting");
       }
 
-      // Also subscribe to matchmaking response
       client.subscribe("/user/queue/matchmaking", (message) => {
         const matchDetails = JSON.parse(message.body);
         console.log("Matchmaking details:", matchDetails);
         setMatchDetails(matchDetails);
+        setMatchmakingStatus("in_game");
+        setGameId(matchDetails.gameId);
       });
     };
 
     client.onStompError = (frame) => {
-      console.error(
-        "Broker reported error (HomePage):",
-        frame.headers["message"]
-      );
-      console.error("Additional details (HomePage):", frame.body);
+      console.error("Broker error:", frame.headers["message"]);
+      console.error("Details:", frame.body);
       setIsConnected(false);
-      setMatchmakingStatus("idle"); // Revert to idle on error
+      setMatchmakingStatus("idle");
       setGameId(null);
     };
 
     client.onWebSocketClose = () => {
-      console.log("WebSocket connection closed (HomePage).");
+      console.log("WebSocket closed.");
       setIsConnected(false);
-      setMatchmakingStatus("idle"); // Revert to idle on close
+      setMatchmakingStatus("idle");
       setGameId(null);
     };
 
@@ -115,29 +118,24 @@ function HomePage() {
     return () => {
       if (stompClientRef.current && stompClientRef.current.connected) {
         stompClientRef.current.deactivate();
-        console.log("Disconnected from WebSocket (HomePage cleanup).");
+        console.log("WebSocket disconnected (cleanup)");
       }
     };
-  }, []); // Empty dependency array: runs only once on mount
+  }, []);
 
   const handlePlayGame = useCallback(() => {
     if (stompClient && matchmakingStatus === "idle") {
-      console.log("Activating STOMP client from HomePage...");
+      console.log("Activating STOMP client...");
       setMatchmakingStatus("connecting");
-      stompClient.activate(); // THIS IS THE KEY: Activate the client here!
+      stompClient.activate();
     } else {
-      console.warn(
-        "Cannot initiate matchmaking: STOMP client not ready or already searching."
-      );
+      console.warn("Already connecting or client not ready.");
     }
   }, [stompClient, matchmakingStatus]);
 
-
-
-
   return (
     <div className="relative min-h-screen flex flex-col justify-center items-center bg-black font-sans text-black-800 text-center">
-      {/* Particles Background */}
+      {/* Particle Background */}
       <div className="absolute inset-0 z-0">
         <Particles
           particleColors={["#ffffff", "#ffffff"]}
@@ -151,7 +149,6 @@ function HomePage() {
         />
       </div>
 
-      
       <div className="relative z-10 top-0 right-0 flex flex-col items-center p-5 max-w-2xl w-full">
         <h1 className="text-5xl font-extrabold text-blue-200 mt-8 mb-4">
           Welcome to Chess Online
@@ -163,7 +160,6 @@ function HomePage() {
               {localStorage.getItem("name")} !!
             </p>
             {matchmakingStatus === "idle" && (
-
               <StarBorder
                 as="button"
                 onClick={handlePlayGame}
@@ -178,12 +174,12 @@ function HomePage() {
         ) : (
           <>
             {matchmakingStatus === "idle" && (
-               <StarBorder
+              <StarBorder
                 as="button"
                 onClick={handlePlayGame}
                 color="cyan"
-                className="cursor-pointer"
                 speed="5s"
+                className="cursor-pointer"
               >
                 Play Game As Guest
               </StarBorder>
@@ -191,18 +187,21 @@ function HomePage() {
           </>
         )}
 
-        {matchmakingStatus === "connecting" && (
-          <p className="italic text-gray-600 mt-4">Connecting to server...</p>
+        {/* Show progress while connecting or searching */}
+        {(matchmakingStatus === "connecting" || matchmakingStatus === "waiting") && (
+          <div className="flex flex-col items-center mt-6 gap-4">
+            <CircularProgress size={50} thickness={5} color="info" />
+            <p className="italic text-gray-300">
+              {matchmakingStatus === "connecting"
+                ? "Connecting to server..."
+                : "Searching for opponent... Please wait."}
+            </p>
+          </div>
         )}
 
-        {matchmakingStatus === "waiting" && (
-          <p className="italic text-gray-600 mt-4">
-            Searching for opponent... Please wait.
-          </p>
-        )}
-
+        {/* In-game transition message */}
         {matchmakingStatus === "in_game" && gameId && (
-          <p className="italic text-gray-600 mt-4">
+          <p className="italic text-gray-300 mt-4">
             Match found! Redirecting to game...
           </p>
         )}

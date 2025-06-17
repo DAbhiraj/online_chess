@@ -83,7 +83,9 @@ public class GameController {
         if (opponentId == null) {
             gameService.addWaitingPlayer(userId);
         } else {
-            String gameId = gameService.createNewGame(userId, opponentId);
+            int whiteTimeLeft = 600;
+            int blackTimeLeft = 600;
+            String gameId = gameService.createNewGame(userId, opponentId,whiteTimeLeft,blackTimeLeft);
             String userColor = "white";      // Assign colors as you see fit
             String fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
             gameService.sendMatchmakingResponse(userId, "success", gameId, opponentId, fen, userColor);
@@ -146,7 +148,9 @@ public class GameController {
 
         User opponent = opponentOpt.get();
         String opponentId = opponent.getEmail().toString();
-        String gameId = gameService.createNewGame(userId, opponentId);
+        int whiteTimeLeft = 600;
+        int blackTimeLeft = 600;
+        String gameId = gameService.createNewGame(userId, opponentId,whiteTimeLeft,blackTimeLeft);
         String fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
         gameService.sendMatchmakingResponse(userId, "success", gameId, opponentId, fen, "white");
@@ -206,8 +210,9 @@ public class GameController {
             // Ensure the confirmation is coming from the *target* user and for the correct initiator.
             // You might want to add more robust validation here, e.g., checking a pending match request.
             // For simplicity, assuming 'initiatorId' is the 'targetUserId' from the previous step.
-
-            String gameId = gameService.createNewGame(initiatorId, userId); // initiatorId is player1, userId is player2
+            int whiteTimeLeft = 600;
+            int blackTimeLeft = 600;
+            String gameId = gameService.createNewGame(initiatorId, userId,whiteTimeLeft,blackTimeLeft); // initiatorId is player1, userId is player2
             String fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
             // Send success response to both players

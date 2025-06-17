@@ -1,10 +1,12 @@
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import MatchmakingRequestModal from "./MatchMakingReqModal";
 import Particles from "../assets/Particles";
+import Snackbar from "@mui/material/Snackbar";
+import Alert from "@mui/material/Alert";
 
 const LobbyDetails = () => {
   const { lobbyId } = useParams();
@@ -13,6 +15,13 @@ const LobbyDetails = () => {
   const [players, setPlayers] = useState([]);
   const [stompClient, setStompClient] = useState(null);
   const [incomingRequest, setIncomingRequest] = useState(null);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "info",
+  });
+
+  const timeoutRef = useRef(null);
 
   const WEBSOCKET_URL = import.meta.env.VITE_WEBSOCKET_URL;
   const API_BASE = `${import.meta.env.VITE_BACKEND_URL}api/lobby`;
@@ -48,13 +57,20 @@ const LobbyDetails = () => {
         const data = JSON.parse(message.body);
         console.log("Received matchmaking:", data);
 
+        clearTimeout(timeoutRef.current);
+
         if (data.status === "success" && data.gameId) {
           navigate(`/chess/${data.gameId}`);
         }
       });
 
       client.subscribe("/user/queue/rejected", () => {
-        alert("❌ Your matchmaking request was rejected.");
+        clearTimeout(timeoutRef.current);
+        setSnackbar({
+          open: true,
+          message: "❌ Your matchmaking request was rejected.",
+          severity: "error",
+        });
       });
 
       client.subscribe("/user/queue/matchmaking/request", (message) => {
@@ -77,6 +93,7 @@ const LobbyDetails = () => {
         client.deactivate();
         console.log("Disconnected from matchmaking socket.");
       }
+      clearTimeout(timeoutRef.current);
     };
   }, [navigate]);
 
@@ -86,6 +103,8 @@ const LobbyDetails = () => {
         destination: `/app/game.lobby.match.random/${lobbyId}`,
         body: "",
       });
+
+      showWithTimeout("🔍 Searching for a random opponent...");
     }
   };
 
@@ -95,7 +114,22 @@ const LobbyDetails = () => {
         destination: `/app/game.lobby.match.specific/${lobbyId}`,
         body: targetId,
       });
+
+      showWithTimeout(`✅ Match request sent to ${targetId}`);
     }
+  };
+
+  const showWithTimeout = (message) => {
+    setSnackbar({ open: true, message, severity: "info" });
+
+    clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      setSnackbar({
+        open: true,
+        message: "⏰ No response to your matchmaking request. Try again later.",
+        severity: "warning",
+      });
+    }, 20000); // 20 seconds
   };
 
   const handleConfirm = () => {
@@ -131,50 +165,65 @@ const LobbyDetails = () => {
           particleBaseSize={100}
           moveParticlesOnHover={true}
           alphaParticles={false}
-          disableRotation={false} 
+          disableRotation={false}
         />
       </div>
 
-    <div className=" w-1/2 min-h-[50vh] my-6 flex flex-col gap-4 justify-center bg-[#111827] opacity-80 max-w-xl mx-auto mt-10 p-4 text-white shadow-md rounded-lg z-50">
-      <h2 className="text-2xl font-bold mb-4">Lobby: {lobbyId}</h2>
-      <button
-        className=" px-3 py-2 mb-3 bg-blue-800 text-white rounded hover:bg-blue-700  cursor-pointer transistion-all duration-300 "
-        onClick={playRandom}
+      <div className="w-1/2 min-h-[50vh] my-6 flex flex-col gap-4 justify-center bg-[#111827] opacity-80 max-w-xl mx-auto mt-10 p-4 text-white shadow-md rounded-lg z-50">
+        <h2 className="text-2xl font-bold mb-4">Lobby: {lobbyId}</h2>
+
+        <button
+          className="px-3 py-2 mb-3 bg-blue-800 text-white rounded hover:bg-blue-700 cursor-pointer transition-all duration-300"
+          onClick={playRandom}
+        >
+          Play Random
+        </button>
+
+        {players.length === 0 ? (
+          <p>No players in this lobby.</p>
+        ) : (
+          <ul className="space-y-5">
+            {players.map((player) => (
+              <li
+                key={player.id}
+                className="flex justify-between items-center p-2 border rounded"
+              >
+                <span>{player.email}</span>
+                {player.email !== userId && (
+                  <button
+                    className="px-4 py-1 bg-blue-600 cursor-pointer text-white rounded hover:bg-blue-700"
+                    onClick={() => playWith(player.email)}
+                  >
+                    Play
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <MatchmakingRequestModal
+          open={Boolean(incomingRequest)}
+          request={incomingRequest}
+          onConfirm={handleConfirm}
+          onReject={handleReject}
+        />
+      </div>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: "top", horizontal: "right" }}
       >
-        Play Random
-      </button>
-
-      {players.length === 0 ? (
-        <p>No players in this lobby.</p>
-      ) : (
-        <ul className="space-y-5">
-          {players.map((player) => (
-            <li
-              key={player.id}
-              className="flex justify-between items-center p-2 border rounded"
-            >
-              <span>{player.email}</span>
-              {player.email !== userId && (
-                <button
-                  className="px-4 py-1 bg-blue-600 cursor-pointer text-white rounded hover:bg-blue-700"
-                  onClick={() => playWith(player.email)}
-                >
-                  Play
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {/* MUI Modal for Matchmaking */}
-      <MatchmakingRequestModal
-        open={Boolean(incomingRequest)}
-        request={incomingRequest}
-        onConfirm={handleConfirm}
-        onReject={handleReject}
-      />
-    </div>
+        <Alert
+          severity={snackbar.severity}
+          variant="filled"
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </div>
   );
 };

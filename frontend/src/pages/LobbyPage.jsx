@@ -2,16 +2,23 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
 import Particles from "../assets/Particles";
+import Snackbar from "@mui/material/Snackbar";
+import Alert from "@mui/material/Alert";
 
 const API_BASE = `${import.meta.env.VITE_BACKEND_URL}api/lobby`;
 
 function LobbyManager() {
   const [lobbies, setLobbies] = useState([]);
   const [newLobbyId, setNewLobbyId] = useState("");
-  const [message, setMessage] = useState("");
   const [showPopup, setShowPopup] = useState(false);
   const [createdLobbyId, setCreatedLobbyId] = useState("");
   const userId = localStorage.getItem("email");
+
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "info",
+  });
 
   useEffect(() => {
     fetchMyLobbies();
@@ -33,48 +40,48 @@ function LobbyManager() {
         ownerId: userId,
       });
       setCreatedLobbyId(response.data.lobbyId);
-      setMessage("✅ Lobby created!");
+      setSnackbar({ open: true, message: "✅ Lobby created!", severity: "success" });
       setShowPopup(true);
       localStorage.setItem("lobbyId", response.data.lobbyId);
       fetchMyLobbies();
     } catch (err) {
-      setMessage("❌ Failed to create lobby.");
+      setSnackbar({ open: true, message: "❌ Failed to create lobby.", severity: "error" });
     }
   };
 
   const joinLobby = async (lobbyId) => {
     try {
       await axios.post(`${API_BASE}/${lobbyId}/join/${userId}`);
-      setMessage(`✅ Joined lobby ${lobbyId}`);
+      setSnackbar({ open: true, message: `✅ Joined lobby ${lobbyId}`, severity: "success" });
       fetchMyLobbies();
     } catch (err) {
-      setMessage("❌ Failed to join lobby.");
+      setSnackbar({ open: true, message: "❌ Failed to join lobby.", severity: "error" });
     }
   };
 
   const leaveLobby = async (lobbyId) => {
     try {
       await axios.post(`${API_BASE}/${lobbyId}/leave/${userId}`);
-      setMessage(`👋 Left lobby ${lobbyId}`);
+      setSnackbar({ open: true, message: `👋 Left lobby ${lobbyId}`, severity: "info" });
       fetchMyLobbies();
     } catch (err) {
-      setMessage("❌ Failed to leave lobby.");
+      setSnackbar({ open: true, message: "❌ Failed to leave lobby.", severity: "error" });
     }
   };
 
   const deleteLobby = async (lobbyId) => {
     try {
       await axios.delete(`${API_BASE}/${lobbyId}/delete`);
-      setMessage(`🗑️ Lobby ${lobbyId} deleted`);
+      setSnackbar({ open: true, message: `🗑️ Lobby ${lobbyId} deleted`, severity: "warning" });
       fetchMyLobbies();
     } catch (err) {
-      setMessage("❌ Failed to delete lobby.");
+      setSnackbar({ open: true, message: "❌ Failed to delete lobby.", severity: "error" });
     }
   };
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(createdLobbyId);
-    setMessage("✅ Copied to clipboard!");
+    setSnackbar({ open: true, message: "✅ Copied to clipboard!", severity: "success" });
     setTimeout(() => setShowPopup(false), 1000);
   };
 
@@ -90,7 +97,7 @@ function LobbyManager() {
           particleBaseSize={100}
           moveParticlesOnHover={true}
           alphaParticles={false}
-          disableRotation={false} 
+          disableRotation={false}
         />
       </div>
 
@@ -102,7 +109,7 @@ function LobbyManager() {
             <p className="text-white mb-2">Share this code with friends to join:</p>
             <div className="flex items-center justify-between bg-gray-700 p-3 rounded mb-4">
               <code className="text-white text-lg font-mono">{createdLobbyId}</code>
-              <button 
+              <button
                 onClick={copyToClipboard}
                 className="ml-4 px-3 py-1 bg-cyan-600 text-white rounded hover:bg-cyan-700 transition-all duration-300 cursor-pointer"
               >
@@ -111,7 +118,7 @@ function LobbyManager() {
             </div>
             <button
               onClick={() => setShowPopup(false)}
-              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-all duration-200 cursor-pointer" 
+              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-all duration-200 cursor-pointer"
             >
               Close
             </button>
@@ -121,7 +128,7 @@ function LobbyManager() {
 
       {/* Main content */}
       <div className="relative w-full max-w-3xl px-6 py-8 md:px-10 md:py-12 rounded-lg z-10">
-        <div className="bg-[#111827] opacity-80  rounded-lg p-6 shadow-lg">
+        <div className="bg-[#111827] opacity-80 rounded-lg p-6 shadow-lg">
           <h2 className="text-3xl font-bold text-center mb-6 text-white">🎮 Lobby Manager</h2>
 
           <div className="mb-6 flex gap-2">
@@ -187,14 +194,24 @@ function LobbyManager() {
               Join
             </button>
           </div>
-
-          {message && (
-            <div className="text-center text-sm text-green-400 font-medium mt-4">
-              {message}
-            </div>
-          )}
         </div>
       </div>
+
+      {/* Snackbar Alert */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: "top", horizontal: "right" }}
+      >
+        <Alert
+          severity={snackbar.severity}
+          variant="filled"
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </div>
   );
 }

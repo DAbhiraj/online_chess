@@ -11,4 +11,8 @@ public class GameStateDTO {
     private String status;
     private String winnerId;
     private int fullMoveNumber;
+    private String from;
+    private String to;
+    private int whiteTimeLeft;
+    private int blackTimeLeft;
 }
