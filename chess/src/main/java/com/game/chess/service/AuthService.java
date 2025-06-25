@@ -9,6 +9,7 @@
 
 // import lombok.AllArgsConstructor;
 
+// import org.springframework.beans.factory.annotation.Autowired;
 // import org.springframework.security.authentication.AuthenticationManager;
 // import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 // import org.springframework.security.core.Authentication;
@@ -19,81 +20,20 @@
 // import org.springframework.stereotype.Service;
 
 // import java.util.Collections;
+// import java.util.HashSet;
+// import java.util.List;
 // import java.util.Optional;
 // import java.util.stream.Collectors;
 
 // @Service
 // @AllArgsConstructor
 // public class AuthService {
-//     private final AuthenticationManager authenticationManager;
-//     private final UserRepository userRepository;
-//     //private final PasswordEncoder passwordEncoder;
-//     private final JwtTokenProvider tokenProvider;
+   
+//     @Autowired
+//     private JwtTokenProvider tokenProvider;
 
-    
-
-
-//     public AuthResponse registerVerified(VerificationRequest request) {
-//         // Step 2: Fetch the user by email
-//         Optional<User> userOpt = userRepository.findByEmail(request.getEmail());
-//         if (userOpt.isEmpty()) {
-//             throw new UsernameNotFoundException("User not found");
-//         }
-
-//         User user = userOpt.get();
-
-//         // Step 3: Create a custom Authentication object
-//         UserDetails userDetails = new org.springframework.security.core.userdetails.User(
-//                 user.getEmail(),
-//                 user.getPassword(),
-//                 user.getRoles().stream().map(role -> new SimpleGrantedAuthority(role.name())).collect(Collectors.toList())
-//         );
-
-//         Authentication authentication = new UsernamePasswordAuthenticationToken(
-//                 userDetails, null, userDetails.getAuthorities()
-//         );
-
-//         // Step 4: Generate access and refresh tokens using JwtTokenProvider
-//         String accessToken = tokenProvider.generateAccessToken(authentication);
-//         String refreshToken = tokenProvider.generateRefreshToken(user.getEmail());
-
-//         // Step 5: Return the AuthResponse
-//         return new AuthResponse(accessToken, refreshToken, user.getId(), user.getEmail(),user.getName(),user.getRoles());
-//     }
-
-
-
-
-//     public AuthResponse login(LoginRequest request) {
-//         Authentication authentication = authenticationManager.authenticate(
-//                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-//         );
-
-//         User user = userRepository.findByEmail(request.getEmail())
-//                 .orElseThrow(() -> new RuntimeException("User not found"));
-
-//         return createAuthResponse(authentication, user);
-//     }
-
-//     public AuthResponse refreshToken(String refreshToken) {
-//         if (!tokenProvider.validateToken(refreshToken)) {
-//             throw new RuntimeException("Invalid refresh token");
-//         }
-
-//         String email = tokenProvider.getEmailFromToken(refreshToken);
-//         User user = userRepository.findByEmail(email)
-//                 .orElseThrow(() -> new RuntimeException("User not found"));
-
-//         Authentication authentication = new UsernamePasswordAuthenticationToken(
-//                 email, null, Collections.emptyList()
-//         );
-
-//         return createAuthResponse(authentication, user);
-//     }
-
-//     public void logout() {
-//         SecurityContextHolder.clearContext();
-//     }
+//     @Autowired
+//     private UserRepository repo;
 
 //     private AuthResponse createAuthResponse(Authentication authentication, User user) {
 //         String accessToken = tokenProvider.generateAccessToken(authentication);
@@ -101,12 +41,74 @@
 
 //         return new AuthResponse(
 //                 accessToken,
-//                 refreshToken,
 //                 user.getId(),
 //                 user.getEmail(),
-//                 user.getName(),
-//                 user.getRoles()
+//                 user.getName()
 //         );
+//     }
+
+//     public AuthResponse authenticateWithGoogle(String token) {
+//         try {
+//             // Validate the Google ID token
+//             System.out.println("received token is "+token);
+//             System.out.println("hello ");
+//             System.out.println("validate is "+googleTokenValidator.validateToken(token));
+//             var payload = googleTokenValidator.validateToken(token);
+//             System.out.println("payload is "+payload);
+
+//             String email = payload.getEmail();
+//             String name = (String) payload.get("name");
+
+//             System.out.println(email + " email to name " + name);
+
+//             // Check if user exists or create a new one
+//             Optional<User> user = repo.findByEmail(email);
+
+//             System.out.println("is user present?? "+user.isPresent());
+
+//             //if user is not present then create a new one
+//             Set<Role> roles = new HashSet<>();
+//         roles.add(Role.USER);
+//             User user2;
+//             if(!user.isPresent()){
+               
+//                 User newUser = new User();
+//                 newUser.setEmail(email);
+//                 newUser.setName(name);
+//                 newUser.setRoles(roles); 
+//                 repo.save(newUser);
+//                 user2=newUser;
+//             }
+//             else{
+//                 user2=user.get();
+//             }
+
+//             System.out.println("user2 is "+user2.getEmail());
+            
+//             UserDetails userDetails = new org.springframework.security.core.userdetails.User(
+//                 user2.getEmail(),
+//                 "",
+//                 List.of(new SimpleGrantedAuthority("ROLE_USER")
+//                 ));
+//                 System.out.println("userDetails is done ");
+                
+//                 Authentication authentication = new UsernamePasswordAuthenticationToken(
+//                     userDetails, null, userDetails.getAuthorities()
+//                     );
+                    
+//                     System.out.println("authentication is set ");
+//         // Step 4: Generate access and refresh tokens using JwtTokenProvider
+//         String accessToken = tokenProvider.generateAccessToken(authentication);
+//         String refreshToken = tokenProvider.generateRefreshToken(user2.getEmail());
+
+//         // Step 5: Return the AuthResponse
+//         return new AuthResponse(accessToken, user2.getId(), user2.getEmail(),user2.getName());
+  
+//         } catch (Exception e) {
+//            System.out.println("Invalid Google token");
+//         }
+        
+//         return null;
 //     }
 
 

@@ -5,6 +5,7 @@ import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
 import Particles from "./../assets/Particles";
+import GoogleSignIn from "./component/GoogleSignIn";
 
 function MagicLinkRequest() {
   const [email, setEmail] = useState("");
@@ -46,81 +47,93 @@ function MagicLinkRequest() {
   };
 
   return (
-    <div className="relative min-h-screen flex flex-col justify-center items-center bg-black font-sans text-center">
-      <div className="absolute inset-0 z-0">
-        <Particles
-          particleColors={["#ffffff", "#ffffff"]}
-          particleCount={200}
-          particleSpread={10}
-          speed={0.1}
-          particleBaseSize={100}
-          moveParticlesOnHover={true}
-          alphaParticles={false}
-          disableRotation={false}
+  <div className="relative min-h-screen flex flex-col justify-center items-center bg-black font-sans text-center">
+    <div className="absolute inset-0 z-0">
+      <Particles
+        particleColors={["#ffffff", "#ffffff"]}
+        particleCount={200}
+        particleSpread={10}
+        speed={0.1}
+        particleBaseSize={100}
+        moveParticlesOnHover={true}
+        alphaParticles={false}
+        disableRotation={false}
+      />
+    </div>
+
+    <div className="flex items-center justify-center min-h-screen bg-black px-4 z-10 opacity-80">
+      <div className="w-full max-w-3xl bg-[#111827] rounded-2xl shadow-xl p-10">
+        <div className="text-white text-center mb-6">
+          <Typography variant="h5" gutterBottom>
+            Login with Magic Link
+          </Typography>
+          <Typography variant="body2" color="primary">
+            Enter your email address to receive a one-time login link.
+          </Typography>
+        </div>
+
+        <input
+          type="email"
+          placeholder="Enter your email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full p-4 rounded-md bg-transparent border border-gray-500 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
         />
-      </div>
 
-      <div className="flex items-center justify-center min-h-screen bg-black px-4 z-10 opacity-80">
-        <div className="w-full max-w-3xl bg-[#111827] rounded-2xl shadow-xl p-10">
-          <div className="text-white text-center mb-6">
-            <Typography variant="h5" gutterBottom>
-              Login with Magic Link
-            </Typography>
-            <Typography variant="body2" color="primary">
-              Enter your email address to receive a one-time login link.
-            </Typography>
-          </div>
+        <input
+          type="text"
+          placeholder="Enter your name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="w-full p-4 rounded-md bg-transparent border border-gray-500 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-6"
+        />
 
-          <input
-            type="email"
-            placeholder="Enter your email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full p-4 rounded-md bg-transparent border border-gray-500 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
-          />
+        <button
+          onClick={sendLink}
+          disabled={!isFormValid || loading}
+          className={`w-full flex justify-center items-center bg-blue-600 text-white font-semibold py-3 px-6 rounded-md transition duration-300 ${
+            !isFormValid || loading
+              ? "opacity-50 cursor-not-allowed"
+              : "hover:bg-blue-700"
+          }`}
+        >
+          {loading ? (
+            <CircularProgress size={24} style={{ color: "white" }} />
+          ) : (
+            "Send Magic Link"
+          )}
+        </button>
 
-          <input
-            type="text"
-            placeholder="Enter your name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full p-4 rounded-md bg-transparent border border-gray-500 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-6"
-          />
+        {/* Divider with OR */}
+        <div className="flex items-center justify-center my-6">
+          <div className="flex-grow border-t border-gray-600"></div>
+          <span className="mx-4 text-gray-400">or</span>
+          <div className="flex-grow border-t border-gray-600"></div>
+        </div>
 
-          <button
-            onClick={sendLink}
-            disabled={!isFormValid || loading}
-            className={`w-full flex justify-center items-center bg-blue-600 text-white font-semibold py-3 px-6 rounded-md transition duration-300 ${
-              !isFormValid || loading
-                ? "opacity-50 cursor-not-allowed"
-                : "hover:bg-blue-700"
-            }`}
-          >
-            {loading ? (
-              <CircularProgress size={24} style={{ color: "white" }} />
-            ) : (
-              "Send Magic Link"
-            )}
-          </button>
+        {/* Google Sign-In Button */}
+        <div className="flex justify-center">
+          <GoogleSignIn/>
         </div>
       </div>
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: "top", horizontal: "right" }}
-      >
-        <Alert
-          severity={snackbar.severity}
-          variant="filled"
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </div>
-  );
+
+    <Snackbar
+      open={snackbar.open}
+      autoHideDuration={4000}
+      onClose={() => setSnackbar({ ...snackbar, open: false })}
+      anchorOrigin={{ vertical: "top", horizontal: "right" }}
+    >
+      <Alert
+        severity={snackbar.severity}
+        variant="filled"
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        {snackbar.message}
+      </Alert>
+    </Snackbar>
+  </div>
+);
 }
 
 export default MagicLinkRequest;

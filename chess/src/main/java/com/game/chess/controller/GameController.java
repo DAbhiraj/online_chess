@@ -6,11 +6,13 @@ import com.game.chess.dto.GameOverReq;
 import com.game.chess.dto.GameStateDTO;
 import com.game.chess.dto.LobbyDto;
 import com.game.chess.dto.MatchMakingConfirmation;
+import com.game.chess.dto.MatchMakingResponse;
 import com.game.chess.dto.MoveRequest;
 import com.game.chess.dto.PlayerDTO;
 import com.game.chess.model.User;
 import com.game.chess.service.GameService;
 import com.game.chess.service.LobbyService;
+import com.game.chess.service.MatchMakingRedisService;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -43,6 +45,9 @@ public class GameController {
     private SimpMessageSendingOperations messagingTemplate;
 
     @Autowired
+    private MatchMakingRedisService redisService;
+
+    @Autowired
     private LobbyService lobbyService;
 
     private static final Logger logger = LoggerFactory.getLogger(GameController.class);
@@ -55,29 +60,26 @@ public class GameController {
     @MessageMapping("/game.find")
     public void findGame(SimpMessageHeaderAccessor headerAccessor) {
         Principal principal = headerAccessor.getUser();
-        logger.info("got in backend");
-        logger.debug("principal is {}",principal);
+        if (principal == null) return;
+
         String userId = principal.getName();
-        logger.info("Matchmaking request from: " + userId);
+        logger.info("Matchmaking request from: {}", userId);
 
         if (userId.startsWith("guest-")) {
             gameService.matchGuestPlayers(userId);
             return;
         }
 
-        // Check if already in queue
         if (gameService.isPlayerWaiting(userId)) {
             gameService.sendMatchmakingResponse(userId, "already_in_queue", null, null, null, null);
             return;
         }
 
-        // Check if already in game
         if (gameService.isUserInActiveGame(userId)) {
             gameService.sendMatchmakingResponse(userId, "already_in_game", null, null, null, null);
             return;
         }
 
-        // Try to find opponent
         String opponentId = gameService.pollWaitingPlayer(userId);
         
         if (opponentId == null) {
@@ -85,14 +87,23 @@ public class GameController {
         } else {
             int whiteTimeLeft = 600;
             int blackTimeLeft = 600;
-            String gameId = gameService.createNewGame(userId, opponentId,whiteTimeLeft,blackTimeLeft);
-            String userColor = "white";      // Assign colors as you see fit
+            String gameId = gameService.createNewGame(userId, opponentId, whiteTimeLeft, blackTimeLeft);    
             String fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-            gameService.sendMatchmakingResponse(userId, "success", gameId, opponentId, fen, userColor);
-            gameService.sendMatchmakingResponse(opponentId, "success", gameId, userId, fen, "black");
-            gameService.handleUser(userId,opponentId,true,"",false);
+
+            MatchMakingResponse p1 = new MatchMakingResponse("success", gameId, opponentId, fen, "white");
+            MatchMakingResponse p2 = new MatchMakingResponse("success", gameId, userId, fen, "black");
+
+            redisService.storePendingMatch(userId, p1);
+            redisService.storePendingMatch(opponentId, p2);
+
+            // ✅ Manually mark both as subscribed instead of relying on SessionSubscribeEvent
+            redisService.markUserSubscribed(userId);
+            redisService.markUserSubscribed(opponentId);
+
+            gameService.handleUser(userId, opponentId, true, "", false);
         }
     }
+
 
     @MessageMapping("/game.move/{gameId}")
     public void handleMove(

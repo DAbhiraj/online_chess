@@ -28,10 +28,11 @@ public class JwtTokenProvider {
         return Keys.hmacShaKeyFor(Base64.getDecoder().decode(jwtSecret));
     }
 
-    public String generateAccessToken(Authentication authentication) {
-        UserDetails userPrincipal = (UserDetails) authentication.getPrincipal();
+    public String generateAccessToken(String email,String name) {
+        //UserDetails userPrincipal = (UserDetails) authentication.getPrincipal();
         return Jwts.builder()
-                .setSubject(userPrincipal.getUsername())
+                .setSubject(email)
+                .claim("name", name)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
                 .signWith(getSigningKey())

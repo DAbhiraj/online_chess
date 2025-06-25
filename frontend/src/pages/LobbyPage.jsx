@@ -71,7 +71,7 @@ function LobbyManager() {
 
   const deleteLobby = async (lobbyId) => {
     try {
-      await axios.delete(`${API_BASE}/${lobbyId}/delete`);
+      await axios.delete(`${API_BASE}$/{lobbyId}/delete`);
       setSnackbar({ open: true, message: `🗑️ Lobby ${lobbyId} deleted`, severity: "warning" });
       fetchMyLobbies();
     } catch (err) {
@@ -202,7 +202,7 @@ function LobbyManager() {
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: "top", horizontal: "right" }}
+        anchorOrigin={{ vertical: "top", horizontal: "centre" }}
       >
         <Alert
           severity={snackbar.severity}

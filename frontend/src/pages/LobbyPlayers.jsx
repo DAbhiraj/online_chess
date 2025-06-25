@@ -172,12 +172,6 @@ const LobbyDetails = () => {
       <div className="w-1/2 min-h-[50vh] my-6 flex flex-col gap-4 justify-center bg-[#111827] opacity-80 max-w-xl mx-auto mt-10 p-4 text-white shadow-md rounded-lg z-50">
         <h2 className="text-2xl font-bold mb-4">Lobby: {lobbyId}</h2>
 
-        <button
-          className="px-3 py-2 mb-3 bg-blue-800 text-white rounded hover:bg-blue-700 cursor-pointer transition-all duration-300"
-          onClick={playRandom}
-        >
-          Play Random
-        </button>
 
         {players.length === 0 ? (
           <p>No players in this lobby.</p>
@@ -214,7 +208,7 @@ const LobbyDetails = () => {
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: "top", horizontal: "right" }}
+        anchorOrigin={{ vertical: "top", horizontal: "centre" }}
       >
         <Alert
           severity={snackbar.severity}

@@ -37,6 +37,7 @@ function HomePage() {
 
 
   useEffect(() => {
+    console.log(matchDetails);
     if (matchDetails?.gameId) {
       navigate(`/chess/${matchDetails.gameId}`, {
         state: {
@@ -58,60 +59,55 @@ function HomePage() {
     });
 
     client.onConnect = () => {
-      console.log("Connected to WebSocket");
-      setIsConnected(true);
+  console.log("Connected to WebSocket");
+  setIsConnected(true);
 
-      if (!TEST_JWT_TOKEN) {
-        console.log("Subscribing as guest");
-        client.subscribe("/user/queue/guest", (message) => {
-          const guestId = message.body;
-          localStorage.setItem("email", guestId);
-          userIdRef.current = guestId;
+  // ✅ Always subscribe BEFORE you send
+  client.subscribe("/user/queue/matchmaking", (message) => {
+    const matchDetails = JSON.parse(message.body);
+    console.log("🎯 Matchmaking details received:", matchDetails);
+    setMatchDetails(matchDetails);
+    setMatchmakingStatus("in_game");
+    setGameId(matchDetails.gameId);
+  });
 
-          client.publish({
-            destination: "/app/game.find",
-            body: JSON.stringify({ userId: guestId }),
-          });
+  if (!TEST_JWT_TOKEN) {
+    console.log("Subscribing as guest");
 
-          setMatchmakingStatus("waiting");
-        });
+    client.subscribe("/user/queue/guest", (message) => {
+      const guestId = message.body;
+      localStorage.setItem("email", guestId);
+      userIdRef.current = guestId;
 
-        client.publish({
-          destination: "/app/guest.requestGuestId",
-        });
-        console.log("Sent guest ID request");
-      } else {
+      // ✅ Delay this call slightly (or move it inside setTimeout)
+      setTimeout(() => {
         client.publish({
           destination: "/app/game.find",
-          body: JSON.stringify({ userId: userIdRef.current }),
+          body: JSON.stringify({ userId: guestId }),
         });
+      }, 100);
+      
+      setMatchmakingStatus("waiting");
+    });
 
-        setMatchmakingStatus("waiting");
-      }
+    client.publish({
+      destination: "/app/guest.requestGuestId",
+    });
 
-      client.subscribe("/user/queue/matchmaking", (message) => {
-        const matchDetails = JSON.parse(message.body);
-        console.log("Matchmaking details:", matchDetails);
-        setMatchDetails(matchDetails);
-        setMatchmakingStatus("in_game");
-        setGameId(matchDetails.gameId);
+    console.log("Sent guest ID request");
+  } else {
+    // ✅ Delay /app/game.find slightly to give backend time to register subscription
+    setTimeout(() => {
+      client.publish({
+        destination: "/app/game.find",
+        body: JSON.stringify({ userId: userIdRef.current }),
       });
-    };
+    }, 100);
 
-    client.onStompError = (frame) => {
-      console.error("Broker error:", frame.headers["message"]);
-      console.error("Details:", frame.body);
-      setIsConnected(false);
-      setMatchmakingStatus("idle");
-      setGameId(null);
-    };
+    setMatchmakingStatus("waiting");
+  }
+};
 
-    client.onWebSocketClose = () => {
-      console.log("WebSocket closed.");
-      setIsConnected(false);
-      setMatchmakingStatus("idle");
-      setGameId(null);
-    };
 
     setStompClient(client);
 

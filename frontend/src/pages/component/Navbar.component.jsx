@@ -4,12 +4,19 @@ import GooeyNav from "../../assets/GoevyNav";
 function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const TOKEN = localStorage.getItem("authToken");
 
-  const items = [
-    { label: "Home", href: "/" },
+const items = [
+  { label: "Home", href: "/" },
+];
+
+if (TOKEN !== null) {
+  items.push(
     { label: "Lobby", href: "/lobby" },
-    { label: "Profile", href: "/profile" },
-  ];
+    { label: "Profile", href: "/profile" }
+  );
+}
+
 
   const activeIndex = items.findIndex((item) => item.href === location.pathname);
 
@@ -24,7 +31,8 @@ function Navbar() {
 
   return (
     <>
-      <div className="absolute items-center top-5 z-20">
+      {/* Container for GooeyNav - Adjust positioning for mobile */}
+      <div className="absolute top-5 left-1/2 -translate-x-1/2 z-20 md:left-auto md:translate-x-0"> {/* Centered on mobile, then default on md and larger */}
         <GooeyNav
           items={items}
           particleCount={15}
@@ -37,7 +45,8 @@ function Navbar() {
         />
       </div>
 
-      <div className="absolute items-center top-2 right-2 z-20">
+      {/* Container for Login/Logout button - Adjust positioning for mobile */}
+      <div className="absolute top-2 right-2 z-20">
         {localStorage.getItem("authToken") ? (
           <button
             onClick={handleLogout}

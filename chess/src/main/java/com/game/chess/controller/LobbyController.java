@@ -2,7 +2,7 @@ package com.game.chess.controller;
 
 
 
-import java.util.List;
+
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -20,7 +20,7 @@ import com.game.chess.model.Lobby;
 import com.game.chess.model.User;
 import com.game.chess.service.LobbyService;
 import com.game.chess.service.UserService;
-import org.springframework.web.bind.annotation.RequestParam;
+
 
 
 @RestController
