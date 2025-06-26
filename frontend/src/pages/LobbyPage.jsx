@@ -51,6 +51,7 @@ function LobbyManager() {
 
   const joinLobby = async (lobbyId) => {
     try {
+      console.log("lobbyId to join is "+lobbyId);
       await axios.post(`${API_BASE}/${lobbyId}/join/${userId}`);
       setSnackbar({ open: true, message: `✅ Joined lobby ${lobbyId}`, severity: "success" });
       fetchMyLobbies();
